@@ -67,7 +67,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-8 px-6">
+    <div className="flex h-[100dvh] flex-col items-center justify-center gap-8 overflow-hidden px-6">
       <div className="text-center">
         <h1 className="text-3xl font-bold tracking-tight">Spenda</h1>
         <p className="mt-2 text-muted-foreground">Personal expense tracker</p>
