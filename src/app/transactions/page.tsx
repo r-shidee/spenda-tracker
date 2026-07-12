@@ -36,6 +36,7 @@ export default function TransactionsPage() {
   async function loadData() {
     setLoading(true);
 
+    try {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -47,10 +48,7 @@ export default function TransactionsPage() {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (!memberData) {
-      setLoading(false);
-      return;
-    }
+    if (!memberData) return;
 
     const spaceId = memberData.space_id;
 
@@ -76,7 +74,9 @@ export default function TransactionsPage() {
     if (txnsResult.data) setTransactions(txnsResult.data);
     if (catsResult.data) setCategories(catsResult.data);
     if (pmsResult.data) setPaymentMethods(pmsResult.data);
+    } finally {
     setLoading(false);
+    }
   }
 
   const formatAmount = (amount: number) =>

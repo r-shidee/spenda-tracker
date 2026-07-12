@@ -25,24 +25,27 @@ export default function SpaceSettingsPage() {
   }, []);
 
   async function loadData() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
 
-    const { data: memberData } = await supabase
-      .from("space_members")
-      .select("space_id, spaces!inner(*)")
-      .eq("user_id", user.id)
-      .single();
+      const { data: memberData } = await supabase
+        .from("space_members")
+        .select("space_id, spaces!inner(*)")
+        .eq("user_id", user.id)
+        .single();
 
-    if (!memberData) return;
+      if (!memberData) return;
 
-    const spaceData = memberData.spaces as unknown as Space;
-    setSpace(spaceData);
-    setSpaceName(spaceData.name);
-    setStatementDay(spaceData.statement_close_day);
-    setLoading(false);
+      const spaceData = memberData.spaces as unknown as Space;
+      setSpace(spaceData);
+      setSpaceName(spaceData.name);
+      setStatementDay(spaceData.statement_close_day);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function updateSpaceName() {

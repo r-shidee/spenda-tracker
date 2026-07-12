@@ -29,20 +29,23 @@ export default function SettingsPage() {
   }, []);
 
   async function loadData() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
 
-    const { data: memberData } = await supabase
-      .from("space_members")
-      .select("space_id, spaces!inner(*)")
-      .eq("user_id", user.id)
-      .single();
+      const { data: memberData } = await supabase
+        .from("space_members")
+        .select("space_id, spaces!inner(*)")
+        .eq("user_id", user.id)
+        .single();
 
-    if (!memberData) return;
-    setSpace(memberData.spaces as unknown as Space);
-    setLoading(false);
+      if (!memberData) return;
+      setSpace(memberData.spaces as unknown as Space);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function signOut() {

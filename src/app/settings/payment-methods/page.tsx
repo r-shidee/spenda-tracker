@@ -45,28 +45,31 @@ export default function PaymentMethodsSettingsPage() {
   }, []);
 
   async function loadData() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
 
-    const { data: memberData } = await supabase
-      .from("space_members")
-      .select("space_id")
-      .eq("user_id", user.id)
-      .single();
+      const { data: memberData } = await supabase
+        .from("space_members")
+        .select("space_id")
+        .eq("user_id", user.id)
+        .single();
 
-    if (!memberData) return;
-    setSpaceId(memberData.space_id);
+      if (!memberData) return;
+      setSpaceId(memberData.space_id);
 
-    const { data: pms } = await supabase
-      .from("payment_methods")
-      .select("*")
-      .eq("space_id", memberData.space_id)
-      .order("name");
+      const { data: pms } = await supabase
+        .from("payment_methods")
+        .select("*")
+        .eq("space_id", memberData.space_id)
+        .order("name");
 
-    if (pms) setPaymentMethods(pms);
-    setLoading(false);
+      if (pms) setPaymentMethods(pms);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function addPaymentMethod() {

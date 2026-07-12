@@ -38,28 +38,31 @@ export default function CategoriesSettingsPage() {
   }, []);
 
   async function loadData() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
 
-    const { data: memberData } = await supabase
-      .from("space_members")
-      .select("space_id")
-      .eq("user_id", user.id)
-      .single();
+      const { data: memberData } = await supabase
+        .from("space_members")
+        .select("space_id")
+        .eq("user_id", user.id)
+        .single();
 
-    if (!memberData) return;
-    setSpaceId(memberData.space_id);
+      if (!memberData) return;
+      setSpaceId(memberData.space_id);
 
-    const { data: cats } = await supabase
-      .from("categories")
-      .select("*")
-      .eq("space_id", memberData.space_id)
-      .order("sort_order");
+      const { data: cats } = await supabase
+        .from("categories")
+        .select("*")
+        .eq("space_id", memberData.space_id)
+        .order("sort_order");
 
-    if (cats) setCategories(cats);
-    setLoading(false);
+      if (cats) setCategories(cats);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function addCategory() {
