@@ -51,11 +51,13 @@ export default function DashboardPage() {
       return;
     }
 
-    let { data: memberData } = await supabase
+    let { data: memberRows } = await supabase
       .from("space_members")
       .select("space_id, spaces!inner(statement_close_day)")
       .eq("user_id", user.id)
-      .maybeSingle();
+      .limit(1);
+
+    let memberData = memberRows && memberRows.length > 0 ? memberRows[0] : null;
 
     // Auto-create space if first login
     if (!memberData) {
@@ -98,12 +100,12 @@ export default function DashboardPage() {
         );
 
         // Re-fetch member data
-        const { data: newMember } = await supabase
+        const { data: newMemberRows } = await supabase
           .from("space_members")
           .select("space_id, spaces!inner(statement_close_day)")
           .eq("user_id", user.id)
-          .maybeSingle();
-        memberData = newMember;
+          .limit(1);
+        memberData = newMemberRows && newMemberRows.length > 0 ? newMemberRows[0] : null;
       }
     }
 

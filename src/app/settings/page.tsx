@@ -35,11 +35,13 @@ export default function SettingsPage() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: memberData } = await supabase
+      const { data: memberRows } = await supabase
         .from("space_members")
         .select("space_id, spaces!inner(*)")
         .eq("user_id", user.id)
-        .single();
+        .limit(1);
+
+      const memberData = memberRows && memberRows.length > 0 ? memberRows[0] : null;
 
       if (!memberData) return;
       setSpace(memberData.spaces as unknown as Space);

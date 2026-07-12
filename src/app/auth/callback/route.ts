@@ -42,11 +42,13 @@ export async function GET(request: Request) {
       }
 
       // Check if user has a space, if not create one
-      const { data: memberData } = await supabase
+      const { data: memberRows } = await supabase
         .from("space_members")
         .select("space_id")
         .eq("user_id", user.id)
-        .maybeSingle();
+        .limit(1);
+
+      const memberData = memberRows && memberRows.length > 0 ? memberRows[0] : null;
 
       if (!memberData) {
         const { data: spaceData } = await supabase
