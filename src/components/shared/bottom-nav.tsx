@@ -13,8 +13,12 @@ const navItems = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
+const HIDDEN_PATHS = ["/login", "/unauthorized"];
+
 export function BottomNav() {
   const pathname = usePathname();
+
+  if (HIDDEN_PATHS.includes(pathname)) return null;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background">
