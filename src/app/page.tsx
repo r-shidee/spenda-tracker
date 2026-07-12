@@ -41,11 +41,15 @@ export default function DashboardPage() {
   async function loadData() {
     setLoading(true);
 
+    try {
     // Get current user's space
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     let { data: memberData } = await supabase
       .from("space_members")
@@ -103,7 +107,10 @@ export default function DashboardPage() {
       }
     }
 
-    if (!memberData) return;
+    if (!memberData) {
+      setLoading(false);
+      return;
+    }
 
     const spaceId = memberData.space_id;
     const closeDay = (memberData.spaces as unknown as { statement_close_day: number }).statement_close_day;
@@ -190,7 +197,11 @@ export default function DashboardPage() {
 
     if (cats) setCategories(cats);
     if (pms) setPaymentMethods(pms);
-    setLoading(false);
+    } catch (err) {
+      console.error("Dashboard load error:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const formatAmount = (amount: number) =>
