@@ -332,10 +332,17 @@ export default function DashboardPage() {
       )}
 
       {/* Transactions by Date */}
-      <div className="mb-3">
+      <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-medium text-muted-foreground">
           Transactions
         </h2>
+        <Link
+          href="/transactions"
+          transitionTypes={["nav-forward"]}
+          className="text-xs font-medium text-muted-foreground hover:text-foreground"
+        >
+          View All
+        </Link>
       </div>
 
       {/* Filter pills */}
@@ -421,8 +428,9 @@ export default function DashboardPage() {
         </Card>
       ) : (
         (() => {
-          // Group by date
-          const grouped = filteredTransactions.reduce<Record<string, typeof filteredTransactions>>((acc, txn) => {
+          // Group by date (limited to 5)
+          const limited = filteredTransactions.slice(0, 5);
+          const grouped = limited.reduce<Record<string, typeof limited>>((acc, txn) => {
             const dateKey = txn.transaction_date;
             if (!acc[dateKey]) acc[dateKey] = [];
             acc[dateKey].push(txn);
