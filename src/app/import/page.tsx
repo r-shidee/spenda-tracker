@@ -159,14 +159,6 @@ export default function ImportPage() {
         .gte("transaction_date", threeMonthsAgo);
 
       if (existing) {
-        setExistingTxns(
-          existing.map((t) => ({
-            date: t.transaction_date,
-            amount: Number(t.amount),
-            payment_method_id: t.payment_method_id || "",
-          }))
-        );
-
         for (const row of rows) {
           const isDuplicate = existing.some(
             (e) =>
