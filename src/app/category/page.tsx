@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { ViewTransition } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -185,29 +186,31 @@ export default function CategoryPage() {
           {categoryTotals.map((cat) => {
             const pct = totalSpending > 0 ? (cat.total / totalSpending) * 100 : 0;
             return (
-              <Card key={cat.category_id}>
-                <CardContent className="p-4">
-                  <div className="mb-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{cat.category_icon || "💰"}</span>
-                      <div>
-                        <p className="text-sm font-medium">{cat.category_name}</p>
-                        <p className="text-xs text-muted-foreground">{cat.count} transaction{cat.count !== 1 ? "s" : ""}</p>
+              <Link key={cat.category_id} href={`/category/${cat.category_id}`}>
+                <Card className="transition-colors hover:bg-muted/50">
+                  <CardContent className="p-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{cat.category_icon || "💰"}</span>
+                        <div>
+                          <p className="text-sm font-medium">{cat.category_name}</p>
+                          <p className="text-xs text-muted-foreground">{cat.count} transaction{cat.count !== 1 ? "s" : ""}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-mono text-sm font-semibold">{formatAmount(cat.total)}</p>
+                        <p className="font-mono text-xs text-muted-foreground">{pct.toFixed(1)}%</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-mono text-sm font-semibold">{formatAmount(cat.total)}</p>
-                      <p className="font-mono text-xs text-muted-foreground">{pct.toFixed(1)}%</p>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-foreground/80 transition-all"
+                        style={{ width: `${Math.min(pct, 100)}%` }}
+                      />
                     </div>
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-foreground/80 transition-all"
-                      style={{ width: `${Math.min(pct, 100)}%` }}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </Link>
             );
           })}
         </div>
