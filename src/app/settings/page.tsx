@@ -5,7 +5,7 @@ import { ViewTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { LogOut, Home, Tag, CreditCard, ChevronRight } from "lucide-react";
+import { LogOut, Home, Tag, CreditCard, FileDown, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Database } from "@/lib/supabase/types";
@@ -16,6 +16,7 @@ const settingsItems = [
   { href: "/settings/space", label: "Space", description: "Name, statement close day", icon: Home },
   { href: "/settings/categories", label: "Categories", description: "Manage expense categories", icon: Tag },
   { href: "/settings/payment-methods", label: "Payment Methods", description: "Cards, wallets, cash", icon: CreditCard },
+  { href: "/import", label: "Import", description: "Import transactions from PDF", icon: FileDown },
 ];
 
 export default function SettingsPage() {
