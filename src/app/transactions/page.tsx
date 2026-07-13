@@ -26,6 +26,7 @@ export default function TransactionsPage() {
   const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
   const [filterPaymentMethod, setFilterPaymentMethod] = useState<string | null>(null);
+  const [filterOwnership, setFilterOwnership] = useState<string | null>(null);
 
   const supabase = createClient();
 
@@ -89,12 +90,14 @@ export default function TransactionsPage() {
 
   const usedCategoryIds = [...new Set(transactions.map((t) => t.category_id).filter(Boolean))] as string[];
   const usedPmIds = [...new Set(transactions.map((t) => t.payment_method_id).filter(Boolean))] as string[];
+  const usedOwnerships = [...new Set(transactions.map((t) => t.expense_ownership).filter(Boolean))];
   const usedCategories = categories.filter((c) => usedCategoryIds.includes(c.id));
   const usedPaymentMethods = paymentMethods.filter((p) => usedPmIds.includes(p.id));
 
   const filteredTransactions = transactions.filter((txn) => {
     if (filterCategory && txn.category_id !== filterCategory) return false;
     if (filterPaymentMethod && txn.payment_method_id !== filterPaymentMethod) return false;
+    if (filterOwnership && txn.expense_ownership !== filterOwnership) return false;
     return true;
   });
 
@@ -172,6 +175,26 @@ export default function TransactionsPage() {
               ))}
             </div>
           )}
+          {usedOwnerships.length > 1 && (
+            <div className="flex flex-wrap gap-2">
+              {usedOwnerships.map((o) => (
+                <button
+                  key={o}
+                  className={cn(
+                    "rounded-[4px] border px-3 py-1.5 text-xs font-medium transition-colors",
+                    filterOwnership === o
+                      ? "border-foreground bg-foreground text-primary-foreground"
+                      : "border-input bg-background text-muted-foreground hover:bg-accent"
+                  )}
+                  onClick={() =>
+                    setFilterOwnership(filterOwnership === o ? null : o)
+                  }
+                >
+                  {ownershipLabels[o] || o}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -225,22 +248,20 @@ export default function TransactionsPage() {
                                   {txn.merchant_name}
                                 </p>
                                 <div className="flex items-center gap-1.5">
-                                  <p className="text-xs text-muted-foreground">
-                                    {new Date(txn.transaction_date + "T00:00:00").toLocaleDateString("en-MY", {
-                                      day: "numeric",
-                                      month: "short",
-                                    })}
-                                    {" · "}
-                                    {cat?.name || "Uncategorized"}
-                                  </p>
-                                  {txn.expense_ownership !== "self" && (
-                                    <>
+                                    <div className="flex items-center gap-1.5">
+                                      <p className="text-xs text-muted-foreground">
+                                        {new Date(txn.transaction_date + "T00:00:00").toLocaleDateString("en-MY", {
+                                          day: "numeric",
+                                          month: "short",
+                                        })}
+                                        {" · "}
+                                        {cat?.name || "Uncategorized"}
+                                      </p>
                                       <span className="text-xs text-muted-foreground">·</span>
                                       <span className="text-xs text-muted-foreground">
                                         {ownershipLabels[txn.expense_ownership] || txn.expense_ownership}
                                       </span>
-                                    </>
-                                  )}
+                                    </div>
                                 </div>
                               </div>
                             </div>
