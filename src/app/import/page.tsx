@@ -83,7 +83,7 @@ export default function ImportPage() {
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
-        fullText += textContent.items.map((item: { str: string }) => item.str).join(" ") + "\n";
+        fullText += textContent.items.map((item) => ("str" in item ? item.str : "")).join(" ") + "\n";
       }
 
       // Simple line-by-line parser
