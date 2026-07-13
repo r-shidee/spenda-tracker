@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/lib/supabase/types";
 
@@ -209,10 +209,10 @@ export default function TransactionDetailPage({
       exit={{ "nav-forward": "nav-forward", "nav-back": "nav-back", default: "none" }}
       default="none"
     >
-    <main className="mx-auto flex min-h-screen w-full max-w-lg flex-col px-4 pt-4 pb-24">
+    <main className="mx-auto flex min-h-screen w-full max-w-lg flex-col px-4 py-4 pb-24">
 
       {/* Amount */}
-      <div className="mb-6 text-center">
+      <div className="mb-4 text-center">
         <p className="text-4xl font-bold tracking-tight font-mono">
           {editing ? (
             <Input
@@ -230,8 +230,8 @@ export default function TransactionDetailPage({
       </div>
 
       {/* Details */}
-      <Card className="mb-6">
-        <CardContent className="space-y-4 p-4">
+      <Card className="mb-4">
+        <CardContent className="space-y-3 p-4">
           {/* Merchant */}
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Merchant</span>
@@ -286,7 +286,7 @@ export default function TransactionDetailPage({
             )}
           </div>
           {editing && (
-            <div className="flex flex-wrap gap-2 pt-1">
+            <div className="flex flex-wrap gap-1 pt-1">
               {categories.map((cat) => (
                 <button
                   key={cat.id}
@@ -318,7 +318,7 @@ export default function TransactionDetailPage({
             )}
           </div>
           {editing && (
-            <div className="flex flex-wrap gap-2 pt-1">
+            <div className="flex flex-wrap gap-1 pt-1">
               {paymentMethods.map((pm) => (
                 <button
                   key={pm.id}
@@ -353,7 +353,7 @@ export default function TransactionDetailPage({
             )}
           </div>
           {editing && (
-            <div className="flex flex-wrap gap-2 pt-1">
+            <div className="flex flex-wrap gap-1 pt-1">
               {ownershipOptions.map((opt) => (
                 <button
                   key={opt.value}
@@ -389,7 +389,7 @@ export default function TransactionDetailPage({
 
       {/* Sticky bottom bar */}
       <div className="fixed bottom-20 left-0 right-0 z-40 border-t bg-background">
-        <div className="mx-auto flex max-w-lg gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-lg gap-2 px-4 py-2">
           {editing ? (
             <>
               <Button

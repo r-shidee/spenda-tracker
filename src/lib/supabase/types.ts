@@ -55,6 +55,7 @@ export interface Database {
           space_id: string;
           name: string;
           icon: string | null;
+          color: string | null;
           sort_order: number;
           is_default: boolean;
           created_at: string;
@@ -64,6 +65,7 @@ export interface Database {
           space_id: string;
           name: string;
           icon?: string | null;
+          color?: string | null;
           sort_order?: number;
           is_default?: boolean;
           created_at?: string;
@@ -73,6 +75,7 @@ export interface Database {
           space_id?: string;
           name?: string;
           icon?: string | null;
+          color?: string | null;
           sort_order?: number;
           is_default?: boolean;
           created_at?: string;

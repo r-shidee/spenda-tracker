@@ -20,12 +20,7 @@ export default function CategoryPage() {
   const [categoryTotals, setCategoryTotals] = useState<CategoryTotal[]>([]);
   const [totalSpending, setTotalSpending] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [useStatementCycle, setUseStatementCycle] = useState(false);
-  const [statementCloseDay, setStatementCloseDay] = useState(1);
-
-  useEffect(() => {
-    loadData();
-  }, [useStatementCycle]);
+  const [useStatementCycle, setUseStatementCycle] = useState(true);
 
   async function loadData() {
     setLoading(true);
@@ -47,7 +42,6 @@ export default function CategoryPage() {
 
       const spaceId = memberData.space_id;
       const closeDay = (memberData.spaces as unknown as { statement_close_day: number }).statement_close_day;
-      setStatementCloseDay(closeDay);
 
       const now = new Date();
       let startDate: Date;
@@ -108,6 +102,7 @@ export default function CategoryPage() {
             total: v.total,
             count: v.count,
           }))
+          .filter((c) => c.total > 0)
           .sort((a, b) => b.total - a.total);
 
         setCategoryTotals(breakdown);
@@ -116,6 +111,10 @@ export default function CategoryPage() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    loadData();
+  }, [useStatementCycle]);
 
   const formatAmount = (amount: number) =>
     `RM ${amount.toLocaleString("en-MY", {
@@ -137,21 +136,10 @@ export default function CategoryPage() {
       exit={{ "nav-forward": "nav-forward", "nav-back": "nav-back", default: "none" }}
       default="none"
     >
-    <main className="mx-auto w-full max-w-lg px-4 pt-4 pb-4">
+    <main className="mx-auto w-full max-w-lg px-4 py-4 pb-4">
       {/* Period Toggle */}
-      <div className="mb-6 flex items-center justify-center">
+      <div className="mb-4 flex items-center justify-center">
         <div className="grid grid-cols-2 gap-2">
-          <button
-            className={cn(
-              "rounded-[4px] border px-4 py-2 text-sm font-medium transition-colors",
-              !useStatementCycle
-                ? "border-foreground bg-foreground text-primary-foreground"
-                : "border-input bg-background text-muted-foreground hover:bg-accent"
-            )}
-            onClick={() => setUseStatementCycle(false)}
-          >
-            Monthly
-          </button>
           <button
             className={cn(
               "rounded-[4px] border px-4 py-2 text-sm font-medium transition-colors",
@@ -163,11 +151,22 @@ export default function CategoryPage() {
           >
             Statement
           </button>
+          <button
+            className={cn(
+              "rounded-[4px] border px-4 py-2 text-sm font-medium transition-colors",
+              !useStatementCycle
+                ? "border-foreground bg-foreground text-primary-foreground"
+                : "border-input bg-background text-muted-foreground hover:bg-accent"
+            )}
+            onClick={() => setUseStatementCycle(false)}
+          >
+            Monthly
+          </button>
         </div>
       </div>
 
       {/* Total */}
-      <div className="mb-8 text-center">
+      <div className="mb-6 text-center">
         <p className="text-sm text-muted-foreground">Total Spending</p>
         <p className="text-4xl font-bold tracking-tight font-mono">
           {formatAmount(totalSpending)}
@@ -182,7 +181,7 @@ export default function CategoryPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="flex flex-col gap-2">
           {categoryTotals.map((cat) => {
             const pct = totalSpending > 0 ? (cat.total / totalSpending) * 100 : 0;
             return (

@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { ViewTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/lib/supabase/types";
@@ -25,19 +24,11 @@ export default function DashboardPage() {
   const [categoryTotals, setCategoryTotals] = useState<CategoryTotal[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [useStatementCycle, setUseStatementCycle] = useState(false);
-  const [statementCloseDay, setStatementCloseDay] = useState(1);
+  const [useStatementCycle, setUseStatementCycle] = useState(true);
   const [totalSpending, setTotalSpending] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [filterCategory, setFilterCategory] = useState<string | null>(null);
-  const [filterPaymentMethod, setFilterPaymentMethod] = useState<string | null>(null);
-  const [filterOwnership, setFilterOwnership] = useState<string | null>(null);
 
   const supabase = createClient();
-
-  useEffect(() => {
-    loadData();
-  }, [useStatementCycle]);
 
   async function loadData() {
     setLoading(true);
@@ -52,7 +43,7 @@ export default function DashboardPage() {
       return;
     }
 
-    let { data: memberRows } = await supabase
+    const { data: memberRows } = await supabase
       .from("space_members")
       .select("space_id, spaces!inner(statement_close_day)")
       .eq("user_id", user.id)
@@ -117,7 +108,6 @@ export default function DashboardPage() {
 
     const spaceId = memberData.space_id;
     const closeDay = (memberData.spaces as unknown as { statement_close_day: number }).statement_close_day;
-    setStatementCloseDay(closeDay);
 
     // Calculate date range
     const now = new Date();
@@ -207,19 +197,15 @@ export default function DashboardPage() {
     }
   }
 
+  useEffect(() => {
+    loadData();
+  }, [useStatementCycle]);
+
   const formatAmount = (amount: number) =>
     `RM ${amount.toLocaleString("en-MY", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
-
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("en-MY", {
-      day: "numeric",
-      month: "short",
-    });
-  };
 
   const ownershipLabels: Record<string, string> = {
     self: "Self",
@@ -227,21 +213,6 @@ export default function DashboardPage() {
     gift_spouse: "Gift / Treat",
     paid_for_others: "Reimbursable",
   };
-
-  // Derive unique categories, payment methods, and ownerships from current transactions
-  const usedCategoryIds = [...new Set(transactions.map((t) => t.category_id).filter(Boolean))] as string[];
-  const usedPmIds = [...new Set(transactions.map((t) => t.payment_method_id).filter(Boolean))] as string[];
-  const usedOwnerships = [...new Set(transactions.map((t) => t.expense_ownership).filter(Boolean))];
-  const usedCategories = categories.filter((c) => usedCategoryIds.includes(c.id));
-  const usedPaymentMethods = paymentMethods.filter((p) => usedPmIds.includes(p.id));
-
-  // Apply filters
-  const filteredTransactions = transactions.filter((txn) => {
-    if (filterCategory && txn.category_id !== filterCategory) return false;
-    if (filterPaymentMethod && txn.payment_method_id !== filterPaymentMethod) return false;
-    if (filterOwnership && txn.expense_ownership !== filterOwnership) return false;
-    return true;
-  });
 
   if (loading) {
     return (
@@ -257,21 +228,10 @@ export default function DashboardPage() {
       exit={{ "nav-forward": "nav-forward", "nav-back": "nav-back", default: "none" }}
       default="none"
     >
-    <main className="mx-auto w-full max-w-lg px-4 pt-4">
+    <main className="mx-auto w-full max-w-lg px-4 py-4">
       {/* Period Toggle */}
-      <div className="mb-6 flex items-center justify-center">
+      <div className="mb-4 flex items-center justify-center">
         <div className="grid grid-cols-2 gap-2">
-          <button
-            className={cn(
-              "rounded-[4px] border px-4 py-2 text-sm font-medium transition-colors",
-              !useStatementCycle
-                ? "border-foreground bg-foreground text-primary-foreground"
-                : "border-input bg-background text-muted-foreground hover:bg-accent"
-            )}
-            onClick={() => setUseStatementCycle(false)}
-          >
-            Monthly
-          </button>
           <button
             className={cn(
               "rounded-[4px] border px-4 py-2 text-sm font-medium transition-colors",
@@ -283,11 +243,22 @@ export default function DashboardPage() {
           >
             Statement
           </button>
+          <button
+            className={cn(
+              "rounded-[4px] border px-4 py-2 text-sm font-medium transition-colors",
+              !useStatementCycle
+                ? "border-foreground bg-foreground text-primary-foreground"
+                : "border-input bg-background text-muted-foreground hover:bg-accent"
+            )}
+            onClick={() => setUseStatementCycle(false)}
+          >
+            Monthly
+          </button>
         </div>
       </div>
 
       {/* Total Spending */}
-      <div className="mb-8 text-center">
+      <div className="mb-6 text-center">
         <p className="text-sm text-muted-foreground">Total Spending</p>
         <p className="text-4xl font-bold tracking-tight font-mono">
           {formatAmount(totalSpending)}
@@ -296,44 +267,28 @@ export default function DashboardPage() {
 
       {/* Category Breakdown */}
       {categoryTotals.length > 0 && (
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <h2 className="mb-3 text-sm font-medium text-muted-foreground">
-              By Category
-            </h2>
-            <div className="space-y-3">
-              {categoryTotals.map((cat) => (
-                <div key={cat.category_id} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-2">
-                      <span>{cat.category_icon}</span>
-                      {cat.category_name}
-                    </span>
-                      <span className="font-mono text-sm font-medium">
-                      {formatAmount(cat.total)}
-                    </span>
+        <div className="mb-4 flex flex-col gap-2">
+          {categoryTotals.map((cat) => (
+            <Link key={cat.category_id} href={`/category/${cat.category_id}`} transitionTypes={["nav-forward"]}>
+              <Card className="transition-colors hover:bg-muted/50">
+                <CardContent className="flex items-center justify-between py-2 pl-4 pr-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{cat.category_icon || "💰"}</span>
+                    <span className="text-sm font-medium">{cat.category_name}</span>
                   </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-foreground/80"
-                      style={{
-                        width: `${Math.min(
-                          (cat.total / totalSpending) * 100,
-                          100
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                  <span className="font-mono text-sm font-semibold">
+                    {formatAmount(cat.total)}
+                  </span>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
       )}
 
       {/* Transactions by Date */}
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-medium text-muted-foreground">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-base font-semibold">
           Transactions
         </h2>
         <Link
@@ -345,77 +300,7 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* Filter pills */}
-      {(usedCategories.length > 0 || usedPaymentMethods.length > 0) && (
-        <div className="mb-4 space-y-2">
-          {usedCategories.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {usedCategories.map((cat) => (
-                <button
-                  key={cat.id}
-                  className={cn(
-                    "rounded-[4px] border px-3 py-1.5 text-xs font-medium transition-colors",
-                    filterCategory === cat.id
-                      ? "border-foreground bg-foreground text-primary-foreground"
-                      : "border-input bg-background text-muted-foreground hover:bg-accent"
-                  )}
-                  onClick={() =>
-                    setFilterCategory(filterCategory === cat.id ? null : cat.id)
-                  }
-                >
-                  {cat.icon} {cat.name}
-                </button>
-              ))}
-            </div>
-          )}
-          {usedPaymentMethods.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {usedPaymentMethods.map((pm) => (
-                <button
-                  key={pm.id}
-                  className={cn(
-                    "rounded-[4px] border px-3 py-1.5 text-xs font-medium transition-colors",
-                    filterPaymentMethod === pm.id
-                      ? "border-foreground bg-foreground text-primary-foreground"
-                      : "border-input bg-background text-muted-foreground hover:bg-accent"
-                  )}
-                  onClick={() =>
-                    setFilterPaymentMethod(filterPaymentMethod === pm.id ? null : pm.id)
-                  }
-                >
-                  <span
-                    className="mr-1.5 inline-block h-2 w-2 rounded-full"
-                    style={{ backgroundColor: pm.color || "#6b7280" }}
-                  />
-                  {pm.name}
-                </button>
-              ))}
-            </div>
-          )}
-          {usedOwnerships.length > 1 && (
-            <div className="flex flex-wrap gap-2">
-              {usedOwnerships.map((o) => (
-                <button
-                  key={o}
-                  className={cn(
-                    "rounded-[4px] border px-3 py-1.5 text-xs font-medium transition-colors",
-                    filterOwnership === o
-                      ? "border-foreground bg-foreground text-primary-foreground"
-                      : "border-input bg-background text-muted-foreground hover:bg-accent"
-                  )}
-                  onClick={() =>
-                    setFilterOwnership(filterOwnership === o ? null : o)
-                  }
-                >
-                  {ownershipLabels[o] || o}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {filteredTransactions.length === 0 ? (
+      {transactions.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <p className="text-muted-foreground">
@@ -429,7 +314,7 @@ export default function DashboardPage() {
       ) : (
         (() => {
           // Group by date (limited to 5)
-          const limited = filteredTransactions.slice(0, 5);
+          const limited = transactions.slice(0, 5);
           const grouped = limited.reduce<Record<string, typeof limited>>((acc, txn) => {
             const dateKey = txn.transaction_date;
             if (!acc[dateKey]) acc[dateKey] = [];
@@ -468,7 +353,7 @@ export default function DashboardPage() {
                         {formatAmount(dayTotal)}
                       </span>
                     </div>
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-2">
                       {txns.map((txn) => {
                         const cat = categories.find((c) => c.id === txn.category_id);
                         const pm = paymentMethods.find((p) => p.id === txn.payment_method_id);
@@ -477,16 +362,16 @@ export default function DashboardPage() {
                             <Card className="relative overflow-hidden transition-colors hover:bg-muted/50">
                               <div
                                 className="absolute left-0 top-0 h-full w-1.5"
-                                style={{ backgroundColor: pm?.color || "transparent" }}
+                                style={{ backgroundColor: cat?.color || "transparent" }}
                               />
-                              <CardContent className="flex items-center justify-between py-3 pl-5 pr-3">
-                                <div className="flex items-center gap-3">
+                              <CardContent className="flex items-center justify-between py-2 pl-4 pr-3">
+                                <div className="flex items-center gap-2">
                                   <span className="text-lg">{cat?.icon || "💰"}</span>
                                   <div>
                                     <p className="text-sm font-medium">
                                       {txn.merchant_name}
                                     </p>
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1">
                                       <p className="text-xs text-muted-foreground">
                                         {cat?.name || "Uncategorized"}
                                       </p>

@@ -67,13 +67,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex h-[100dvh] flex-col items-center justify-center gap-8 overflow-hidden px-6">
+    <div className="flex h-[100dvh] flex-col items-center justify-center gap-6 overflow-hidden px-6">
       <div className="text-center">
         <h1 className="text-3xl font-bold tracking-tight">Spenda</h1>
         <p className="mt-2 text-muted-foreground">Personal expense tracker</p>
       </div>
 
-      <div className="w-full max-w-sm space-y-4">
+      <div className="w-full max-w-sm space-y-3">
         {/* Google Sign-In */}
         <button
           onClick={handleGoogleSignIn}

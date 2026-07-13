@@ -42,10 +42,6 @@ export default function AddExpensePage() {
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
   async function loadData() {
     const {
       data: { user },
@@ -80,6 +76,10 @@ export default function AddExpensePage() {
     if (cats.data) setCategories(cats.data);
     if (pms.data) setPaymentMethods(pms.data);
   }
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   function handleAmountInput(digit: string) {
     setAmount((prev) => {
@@ -173,7 +173,7 @@ export default function AddExpensePage() {
       exit={{ "nav-forward": "nav-forward", "nav-back": "nav-back", default: "none" }}
       default="none"
     >
-    <main className="mx-auto flex h-[calc(100vh-3rem-4rem)] w-full max-w-lg flex-col px-4 pt-4 pb-20 overflow-hidden">
+    <main className="mx-auto flex h-[calc(100vh-3rem-4rem)] w-full max-w-lg flex-col px-4 py-4 pb-20 overflow-hidden">
       {/* Step indicator */}
       <div className="mb-4 flex items-center justify-center gap-2">
         {STEPS.map((_, i) => (
@@ -194,7 +194,7 @@ export default function AddExpensePage() {
             <p className="mb-2 text-sm text-muted-foreground">Amount</p>
             <p className="text-6xl font-bold tracking-tight font-mono">RM {amount}</p>
           </div>
-          <div className="grid grid-cols-3 gap-2 pb-5">
+          <div className="grid grid-cols-3 gap-2 pb-4">
             {keypad.flat().map((key) => (
               <Button
                 key={key}
@@ -214,8 +214,8 @@ export default function AddExpensePage() {
 
       {/* Step 2: Date & Time */}
       {step === "datetime" && (
-        <div className="flex flex-col items-center justify-center gap-6 flex-1">
-          <div className="w-full max-w-xs space-y-4">
+        <div className="flex flex-col items-center justify-center gap-4 flex-1">
+          <div className="w-full max-w-xs space-y-3">
             <div>
               <label className="mb-2 block text-sm text-muted-foreground">
                 Date
@@ -245,11 +245,11 @@ export default function AddExpensePage() {
       {/* Step 3: Payment Method */}
       {step === "payment" && (
         <div className="flex-1 flex flex-col items-center justify-center">
-          <p className="mb-6 text-sm text-muted-foreground">
+          <p className="mb-4 text-sm text-muted-foreground">
             How did you pay?
           </p>
           <div className={cn(
-            "grid gap-3 w-full max-w-sm",
+            "grid gap-2 w-full max-w-sm",
             paymentMethods.length <= 3 ? "grid-cols-3" : "grid-cols-3"
           )}>
             {paymentMethods.map((pm) => (
@@ -287,7 +287,7 @@ export default function AddExpensePage() {
       {/* Step 4: Category */}
       {step === "category" && (
         <div className="flex-1 flex flex-col items-center justify-center">
-          <p className="mb-6 text-sm text-muted-foreground">
+          <p className="mb-4 text-sm text-muted-foreground">
             What category?
           </p>
           <div className="grid grid-cols-3 gap-2 w-full max-w-sm">
@@ -312,7 +312,7 @@ export default function AddExpensePage() {
 
       {/* Step 5: Merchant + Ownership */}
       {step === "details" && (
-        <div className="flex-1 flex flex-col items-center justify-center gap-6">
+        <div className="flex-1 flex flex-col items-center justify-center gap-4">
           <div className="w-full max-w-xs">
             <label className="mb-2 block text-sm text-muted-foreground">
               Where did you spend?
@@ -326,10 +326,10 @@ export default function AddExpensePage() {
             />
           </div>
           <div className="w-full max-w-xs">
-            <label className="mb-3 block text-sm text-muted-foreground">
+            <label className="mb-2 block text-sm text-muted-foreground">
               Who is this for?
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               {ownershipOptions.map((opt) => (
                 <button
                   key={opt.value}
@@ -349,7 +349,7 @@ export default function AddExpensePage() {
 
       {/* Sticky bottom nav bar */}
       <div className="fixed bottom-20 left-0 right-0 z-40 border-t bg-background">
-        <div className="mx-auto flex max-w-lg gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-lg gap-2 px-4 py-2">
           <Button
             variant="outline"
             className="flex-1 h-12"

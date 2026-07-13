@@ -20,7 +20,7 @@ export function TopNav() {
 
   return (
     <nav
-      className="sticky top-0 z-50 bg-foreground text-background"
+      className="sticky top-0 z-50 bg-black text-white"
       style={{ viewTransitionName: "top-nav" }}
     >
       <div className="mx-auto flex h-12 max-w-lg items-center px-4">
@@ -28,7 +28,7 @@ export function TopNav() {
           {showBack && (
             <button
               onClick={() => router.back()}
-              className="flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-background/10"
+              className="flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-white/10"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
@@ -38,9 +38,9 @@ export function TopNav() {
         <div className="flex-1 text-center">
           <Link
             href="/"
-            className="font-mono text-lg font-bold tracking-tight"
+            className="font-mono text-lg font-bold lowercase tracking-widest"
           >
-            Spenda
+            spenda
           </Link>
         </div>
 

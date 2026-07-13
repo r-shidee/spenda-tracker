@@ -8,9 +8,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { LogOut, Home, Tag, CreditCard, FileDown, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { Database } from "@/lib/supabase/types";
-
-type Space = Database["public"]["Tables"]["spaces"]["Row"];
 
 const settingsItems = [
   { href: "/settings/space", label: "Space", description: "Name, statement close day", icon: Home },
@@ -22,12 +19,7 @@ const settingsItems = [
 export default function SettingsPage() {
   const supabase = createClient();
   const router = useRouter();
-  const [space, setSpace] = useState<Space | null>(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   async function loadData() {
     try {
@@ -35,21 +27,14 @@ export default function SettingsPage() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
-
-      const { data: memberRows } = await supabase
-        .from("space_members")
-        .select("space_id, spaces!inner(*)")
-        .eq("user_id", user.id)
-        .limit(1);
-
-      const memberData = memberRows && memberRows.length > 0 ? memberRows[0] : null;
-
-      if (!memberData) return;
-      setSpace(memberData.spaces as unknown as Space);
     } finally {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -71,13 +56,13 @@ export default function SettingsPage() {
       exit={{ "nav-forward": "nav-forward", "nav-back": "nav-back", default: "none" }}
       default="none"
     >
-    <main className="mx-auto w-full max-w-lg px-4 pt-4 pb-4">
-      <div className="space-y-2">
+    <main className="mx-auto w-full max-w-lg px-4 py-4 pb-4">
+      <div className="flex flex-col gap-4">
         {settingsItems.map((item) => (
           <Link key={item.href} href={item.href}>
             <Card className="transition-colors hover:bg-muted/50">
-              <CardContent className="flex items-center justify-between p-4">
-                <div className="flex items-center gap-3">
+              <CardContent className="flex items-center justify-between py-3 px-4">
+                <div className="flex items-center gap-2">
                   <item.icon className="h-5 w-5 text-muted-foreground" />
                   <div>
                     <p className="text-sm font-medium">{item.label}</p>
@@ -91,18 +76,14 @@ export default function SettingsPage() {
         ))}
       </div>
 
-      <Card className="mt-6">
-        <CardContent className="pt-6">
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={signOut}
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign Out
-          </Button>
-        </CardContent>
-      </Card>
+      <Button
+        variant="outline"
+        className="mt-4 w-full"
+        onClick={signOut}
+      >
+        <LogOut className="mr-2 h-4 w-4" />
+        Sign Out
+      </Button>
     </main>
     </ViewTransition>
   );

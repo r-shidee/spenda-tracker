@@ -7,11 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileDown, Check, X, AlertTriangle } from "lucide-react";
+import { Upload, FileDown, Check, AlertTriangle } from "lucide-react";
 import type { Database } from "@/lib/supabase/types";
 
 type Category = Database["public"]["Tables"]["categories"]["Row"];
-type PaymentMethod = Database["public"]["Tables"]["payment_methods"]["Row"];
 
 interface ImportedRow {
   id: string;
@@ -31,20 +30,9 @@ export default function ImportPage() {
 
   const [importedRows, setImportedRows] = useState<ImportedRow[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [spaceId, setSpaceId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [parsing, setParsing] = useState(false);
-  const [existingTxns, setExistingTxns] = useState<{
-    date: string;
-    amount: number;
-    payment_method_id: string;
-  }[]>([]);
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   async function loadData() {
     const {
@@ -63,23 +51,18 @@ export default function ImportPage() {
     if (!memberData) return;
     setSpaceId(memberData.space_id);
 
-    const [cats, pms] = await Promise.all([
-      supabase
-        .from("categories")
-        .select("*")
-        .eq("space_id", memberData.space_id)
-        .order("sort_order"),
-      supabase
-        .from("payment_methods")
-        .select("*")
-        .eq("space_id", memberData.space_id)
-        .eq("is_active", true)
-        .order("name"),
-    ]);
+    const { data: cats } = await supabase
+      .from("categories")
+      .select("*")
+      .eq("space_id", memberData.space_id)
+      .order("sort_order");
 
-    if (cats.data) setCategories(cats.data);
-    if (pms.data) setPaymentMethods(pms.data);
+    if (cats) setCategories(cats);
   }
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -100,7 +83,7 @@ export default function ImportPage() {
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
-        fullText += textContent.items.map((item: any) => item.str).join(" ") + "\n";
+        fullText += textContent.items.map((item: { str: string }) => item.str).join(" ") + "\n";
       }
 
       // Simple line-by-line parser
@@ -279,7 +262,6 @@ export default function ImportPage() {
       maximumFractionDigits: 2,
     })}`;
 
-  const newCount = importedRows.filter((r) => r.status === "new").length;
   const dupCount = importedRows.filter((r) => r.status === "duplicate").length;
 
   return (
@@ -288,16 +270,16 @@ export default function ImportPage() {
       exit={{ "nav-forward": "nav-forward", "nav-back": "nav-back", default: "none" }}
       default="none"
     >
-    <main className="mx-auto w-full max-w-lg px-4 pt-4 pb-4">
+    <main className="mx-auto w-full max-w-lg px-4 py-4 pb-4">
 
       {/* Upload */}
-      <Card className="mb-6">
-        <CardContent className="flex flex-col items-center justify-center py-8">
-          <FileDown className="mb-3 h-10 w-10 text-muted-foreground" />
+      <Card className="mb-4">
+        <CardContent className="flex flex-col items-center justify-center py-6">
+          <FileDown className="mb-2 h-10 w-10 text-muted-foreground" />
           <p className="mb-2 text-sm text-muted-foreground">
             Upload a bank or credit card statement PDF
           </p>
-          <p className="mb-4 text-xs text-muted-foreground">
+          <p className="mb-2 text-xs text-muted-foreground">
             Transactions will be extracted and reviewed before saving.
           </p>
           <input
@@ -322,8 +304,8 @@ export default function ImportPage() {
       {importedRows.length > 0 && (
         <>
           {/* Summary */}
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
               <Badge variant="secondary">
                 {importedRows.filter((r) => r.selected).length} selected
               </Badge>
@@ -340,7 +322,7 @@ export default function ImportPage() {
           </div>
 
           {/* Rows */}
-          <div className="mb-6 space-y-2">
+          <div className="mb-4 space-y-2">
             {importedRows.map((row) => (
               <Card
                 key={row.id}
@@ -418,7 +400,7 @@ export default function ImportPage() {
           </div>
 
           {/* Save button */}
-          <div className="mb-8 flex gap-2">
+          <div className="mb-4 flex gap-2">
             <Button
               variant="outline"
               className="flex-1"

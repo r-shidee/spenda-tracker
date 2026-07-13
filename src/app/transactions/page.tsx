@@ -27,12 +27,9 @@ export default function TransactionsPage() {
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
   const [filterPaymentMethod, setFilterPaymentMethod] = useState<string | null>(null);
   const [filterOwnership, setFilterOwnership] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<"date" | "highest" | "lowest">("date");
 
   const supabase = createClient();
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   async function loadData() {
     setLoading(true);
@@ -82,6 +79,10 @@ export default function TransactionsPage() {
     }
   }
 
+  useEffect(() => {
+    loadData();
+  }, []);
+
   const formatAmount = (amount: number) =>
     `RM ${amount.toLocaleString("en-MY", {
       minimumFractionDigits: 2,
@@ -103,12 +104,17 @@ export default function TransactionsPage() {
 
   const totalFiltered = filteredTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
 
-  // Group by month
-  const grouped = filteredTransactions.reduce<Record<string, Transaction[]>>((acc, txn) => {
+  const sortedTransactions = sortBy === "highest"
+    ? [...filteredTransactions].sort((a, b) => Number(b.amount) - Number(a.amount))
+    : sortBy === "lowest"
+    ? [...filteredTransactions].sort((a, b) => Number(a.amount) - Number(b.amount))
+    : filteredTransactions;
+
+  const grouped = sortedTransactions.reduce<Record<string, Transaction[]>>((acc, txn) => {
     const d = new Date(txn.transaction_date + "T00:00:00");
-    const monthKey = d.toLocaleDateString("en-MY", { year: "numeric", month: "long" });
-    if (!acc[monthKey]) acc[monthKey] = [];
-    acc[monthKey].push(txn);
+    const dateKey = d.toLocaleDateString("en-MY", { day: "numeric", month: "short", year: "numeric" });
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(txn);
     return acc;
   }, {});
 
@@ -126,18 +132,18 @@ export default function TransactionsPage() {
       exit={{ "nav-forward": "nav-forward", "nav-back": "nav-back", default: "none" }}
       default="none"
     >
-    <main className="mx-auto w-full max-w-lg px-4 pt-4 pb-4">
+    <main className="mx-auto w-full max-w-lg px-4 py-4 pb-4">
 
       {/* Filter pills */}
       {(usedCategories.length > 0 || usedPaymentMethods.length > 0) && (
-        <div className="mb-4 space-y-2">
+        <div className="sticky top-12 z-20 -mx-4 mb-2 space-y-2 border-b bg-background px-4 pb-3 pt-1 shadow-sm">
           {usedCategories.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+            <div className="-mx-4 flex gap-2 overflow-x-auto px-4">
               {usedCategories.map((cat) => (
                 <button
                   key={cat.id}
                   className={cn(
-                    "rounded-[4px] border px-3 py-1.5 text-xs font-medium transition-colors",
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-lg transition-colors",
                     filterCategory === cat.id
                       ? "border-foreground bg-foreground text-primary-foreground"
                       : "border-input bg-background text-muted-foreground hover:bg-accent"
@@ -146,13 +152,14 @@ export default function TransactionsPage() {
                     setFilterCategory(filterCategory === cat.id ? null : cat.id)
                   }
                 >
-                  {cat.icon} {cat.name}
+                  {cat.icon}
                 </button>
               ))}
             </div>
           )}
-          {usedPaymentMethods.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+          {/* Payment methods hidden for now */}
+          {false && usedPaymentMethods.length > 0 && (
+            <div className="grid grid-cols-3 gap-2">
               {usedPaymentMethods.map((pm) => (
                 <button
                   key={pm.id}
@@ -176,7 +183,7 @@ export default function TransactionsPage() {
             </div>
           )}
           {usedOwnerships.length > 1 && (
-            <div className="flex flex-wrap gap-2">
+            <div className="mx-auto grid w-2/3 grid-cols-2 gap-2">
               {usedOwnerships.map((o) => (
                 <button
                   key={o}
@@ -199,11 +206,29 @@ export default function TransactionsPage() {
       )}
 
       {/* Summary */}
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between">
         <span className="text-xs text-muted-foreground">
           {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? "s" : ""}
         </span>
         <span className="font-mono text-sm font-semibold">{formatAmount(totalFiltered)}</span>
+      </div>
+
+      {/* Sort pills */}
+      <div className="mb-3 grid grid-cols-3 gap-2">
+        {(["date", "highest", "lowest"] as const).map((s) => (
+          <button
+            key={s}
+            className={cn(
+              "rounded-[4px] border px-3 py-1.5 text-xs font-medium transition-colors",
+              sortBy === s
+                ? "border-foreground bg-foreground text-primary-foreground"
+                : "border-input bg-background text-muted-foreground hover:bg-accent"
+            )}
+            onClick={() => setSortBy(s)}
+          >
+            {s === "date" ? "📅 Date" : s === "highest" ? "⬆️ Highest" : "⬇️ Lowest"}
+          </button>
+        ))}
       </div>
 
       {filteredTransactions.length === 0 ? (
@@ -216,20 +241,24 @@ export default function TransactionsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-6">
-          {Object.entries(grouped).map(([monthKey, txns]) => {
-            const monthTotal = txns.reduce((sum, t) => sum + Number(t.amount), 0);
+        <div className="space-y-4">
+          {Object.entries(grouped).map(([dateKey, txns]) => {
+            const dayTotal = txns.reduce((sum, t) => sum + Number(t.amount), 0);
+            const showDateHeader = sortBy === "date";
             return (
-              <div key={monthKey}>
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {monthKey}
-                  </span>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {formatAmount(monthTotal)}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1">
+              <div key={dateKey}>
+                {showDateHeader && (
+                  <div className="mb-2 flex flex-col items-center">
+                    <span className="text-sm font-semibold">
+                      {dateKey}
+                    </span>
+                    <div className="my-1 h-px w-full bg-border" />
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {formatAmount(dayTotal)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex flex-col gap-2">
                   {txns.map((txn) => {
                     const cat = categories.find((c) => c.id === txn.category_id);
                     const pm = paymentMethods.find((p) => p.id === txn.payment_method_id);
@@ -238,23 +267,18 @@ export default function TransactionsPage() {
                         <Card className="relative overflow-hidden transition-colors hover:bg-muted/50">
                           <div
                             className="absolute left-0 top-0 h-full w-1.5"
-                            style={{ backgroundColor: pm?.color || "transparent" }}
+                            style={{ backgroundColor: cat?.color || "transparent" }}
                           />
-                          <CardContent className="flex items-center justify-between py-3 pl-5 pr-3">
-                            <div className="flex items-center gap-3">
+                          <CardContent className="flex items-center justify-between py-2 pl-4 pr-3">
+                            <div className="flex items-center gap-2">
                               <span className="text-lg">{cat?.icon || "💰"}</span>
                               <div>
                                 <p className="text-sm font-medium">
                                   {txn.merchant_name}
                                 </p>
-                                <div className="flex items-center gap-1.5">
-                                    <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1">
+                                    <div className="flex items-center gap-1">
                                       <p className="text-xs text-muted-foreground">
-                                        {new Date(txn.transaction_date + "T00:00:00").toLocaleDateString("en-MY", {
-                                          day: "numeric",
-                                          month: "short",
-                                        })}
-                                        {" · "}
                                         {cat?.name || "Uncategorized"}
                                       </p>
                                       <span className="text-xs text-muted-foreground">·</span>

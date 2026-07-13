@@ -78,12 +78,12 @@ export default function SpaceSettingsPage() {
       exit={{ "nav-forward": "nav-forward", "nav-back": "nav-back", default: "none" }}
       default="none"
     >
-    <main className="mx-auto w-full max-w-lg px-4 pt-4 pb-4">
+    <main className="mx-auto w-full max-w-lg px-4 py-4 pb-4">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Space</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Name</span>
             {editingSpaceName ? (
