@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import type { Database } from "@/lib/supabase/types";
 
 interface CategoryTotal {
   category_id: string;
@@ -18,7 +19,8 @@ interface CategoryTotal {
 export default function CategoryPage() {
   const supabase = createClient();
   const [categoryTotals, setCategoryTotals] = useState<CategoryTotal[]>([]);
-  const [totalSpending, setTotalSpending] = useState(0);
+  const [totalToPay, setTotalToPay] = useState(0);
+  const [ewalletSpending, setEwalletSpending] = useState(0);
   const [loading, setLoading] = useState(true);
   const [useStatementCycle, setUseStatementCycle] = useState(true);
 
@@ -61,30 +63,42 @@ export default function CategoryPage() {
       const startStr = startDate.toISOString().split("T")[0];
       const endStr = endDate.toISOString().split("T")[0];
 
-      const { data: txns } = await supabase
-        .from("transactions")
-        .select("category_id, amount")
-        .eq("space_id", spaceId)
-        .gte("transaction_date", startStr)
-        .lte("transaction_date", endStr)
-        .eq("transaction_type", "expense")
-        .eq("is_reimbursed", false);
+      const [{ data: txns }, { data: cats }, { data: pms }] = await Promise.all([
+        supabase
+          .from("transactions")
+          .select("category_id, amount, payment_method_id, transaction_type")
+          .eq("space_id", spaceId)
+          .gte("transaction_date", startStr)
+          .lte("transaction_date", endStr)
+          .eq("is_reimbursed", false),
+        supabase
+          .from("categories")
+          .select("id, name, icon")
+          .eq("space_id", spaceId)
+          .order("sort_order"),
+        supabase
+          .from("payment_methods")
+          .select("id, type")
+          .eq("space_id", spaceId),
+      ]);
 
-      const { data: cats } = await supabase
-        .from("categories")
-        .select("id, name, icon")
-        .eq("space_id", spaceId)
-        .order("sort_order");
+      if (txns && cats && pms) {
+        const pmMap = new Map(pms.map(p => [p.id, p.type]));
 
-      if (txns && cats) {
-        const total = txns.reduce((sum, t) => sum + Number(t.amount), 0);
-        setTotalSpending(total);
+        const ccTxns = txns.filter(t => pmMap.get(t.payment_method_id || "") === "credit_card");
+        const ewalletTxns = txns.filter(t => pmMap.get(t.payment_method_id || "") === "ewallet" && t.transaction_type === "expense");
+
+        const ccTotal = ccTxns.reduce((sum, t) => sum + Number(t.amount), 0);
+        setTotalToPay(ccTotal);
+
+        const ewalletTotal = ewalletTxns.reduce((sum, t) => sum + Number(t.amount), 0);
+        setEwalletSpending(ewalletTotal);
 
         const catMap = new Map<string, { name: string; icon: string | null; total: number; count: number }>();
         for (const cat of cats) {
           catMap.set(cat.id, { name: cat.name, icon: cat.icon, total: 0, count: 0 });
         }
-        for (const txn of txns) {
+        for (const txn of ccTxns) {
           if (txn.category_id) {
             const entry = catMap.get(txn.category_id);
             if (entry) {
@@ -137,7 +151,6 @@ export default function CategoryPage() {
       default="none"
     >
     <main className="mx-auto w-full max-w-lg px-4 py-4 pb-4">
-      {/* Period Toggle */}
       <div className="mb-4 flex items-center justify-center">
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -165,15 +178,29 @@ export default function CategoryPage() {
         </div>
       </div>
 
-      {/* Total */}
       <div className="mb-6 text-center">
-        <p className="text-sm text-muted-foreground">Total Spending</p>
+        <p className="text-sm text-muted-foreground">Total to Pay</p>
         <p className="text-4xl font-bold tracking-tight font-mono">
-          {formatAmount(totalSpending)}
+          {formatAmount(totalToPay)}
         </p>
       </div>
 
-      {/* Category List */}
+      {ewalletSpending > 0 && (
+        <div className="mb-4">
+          <Card className="border-dashed">
+            <CardContent className="flex items-center justify-between py-3 pl-4 pr-3">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📱</span>
+                <span className="text-sm font-medium">eWallet Spending</span>
+              </div>
+              <span className="font-mono text-sm font-semibold">
+                {formatAmount(ewalletSpending)}
+              </span>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {categoryTotals.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
@@ -183,7 +210,7 @@ export default function CategoryPage() {
       ) : (
         <div className="flex flex-col gap-2">
           {categoryTotals.map((cat) => {
-            const pct = totalSpending > 0 ? (cat.total / totalSpending) * 100 : 0;
+            const pct = totalToPay > 0 ? (cat.total / totalToPay) * 100 : 0;
             return (
               <Link key={cat.category_id} href={`/category/${cat.category_id}`}>
                 <Card className="transition-colors hover:bg-muted/50">

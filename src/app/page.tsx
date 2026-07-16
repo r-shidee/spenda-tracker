@@ -20,12 +20,14 @@ interface CategoryTotal {
 }
 
 export default function DashboardPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [ccTransactions, setCcTransactions] = useState<Transaction[]>([]);
+  const [ewalletTransactions, setEwalletTransactions] = useState<Transaction[]>([]);
   const [categoryTotals, setCategoryTotals] = useState<CategoryTotal[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [useStatementCycle, setUseStatementCycle] = useState(true);
-  const [totalSpending, setTotalSpending] = useState(0);
+  const [totalToPay, setTotalToPay] = useState(0);
+  const [ewalletSpending, setEwalletSpending] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const supabase = createClient();
@@ -34,7 +36,6 @@ export default function DashboardPage() {
     setLoading(true);
 
     try {
-    // Get current user's space
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -51,7 +52,6 @@ export default function DashboardPage() {
 
     let memberData = memberRows && memberRows.length > 0 ? memberRows[0] : null;
 
-    // Auto-create space if first login
     if (!memberData) {
       const { data: spaceData } = await supabase
         .from("spaces")
@@ -91,7 +91,6 @@ export default function DashboardPage() {
           }))
         );
 
-        // Re-fetch member data
         const { data: newMemberRows } = await supabase
           .from("space_members")
           .select("space_id, spaces!inner(statement_close_day)")
@@ -109,21 +108,17 @@ export default function DashboardPage() {
     const spaceId = memberData.space_id;
     const closeDay = (memberData.spaces as unknown as { statement_close_day: number }).statement_close_day;
 
-    // Calculate date range
     const now = new Date();
     let startDate: Date;
     let endDate: Date;
 
     if (useStatementCycle) {
-      // Statement cycle: closeDay of previous month to closeDay of current month
       startDate = new Date(now.getFullYear(), now.getMonth() - 1, closeDay);
       endDate = new Date(now.getFullYear(), now.getMonth(), closeDay);
-      // If we haven't reached closeDay this month, endDate is this month's closeDay
       if (now.getDate() < closeDay) {
         endDate = new Date(now.getFullYear(), now.getMonth(), closeDay);
       }
     } else {
-      // Calendar month
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     }
@@ -131,43 +126,53 @@ export default function DashboardPage() {
     const startStr = startDate.toISOString().split("T")[0];
     const endStr = endDate.toISOString().split("T")[0];
 
-    // Fetch transactions
     const { data: txns } = await supabase
       .from("transactions")
       .select("*")
       .eq("space_id", spaceId)
       .gte("transaction_date", startStr)
       .lte("transaction_date", endStr)
-      .eq("transaction_type", "expense")
       .eq("is_reimbursed", false)
       .order("transaction_date", { ascending: false });
 
-    // Fetch categories
     const { data: cats } = await supabase
       .from("categories")
       .select("*")
       .eq("space_id", spaceId)
       .order("sort_order");
 
-    // Fetch payment methods
     const { data: pms } = await supabase
       .from("payment_methods")
       .select("*")
       .eq("space_id", spaceId);
 
-    if (txns) {
-      setTransactions(txns);
+    if (txns && pms) {
+      const pmMap = new Map(pms.map(p => [p.id, p]));
+      const ccTxns = txns.filter(t => {
+        const pm = pmMap.get(t.payment_method_id || "");
+        return pm?.type === "credit_card";
+      });
+      const ewalletTxns = txns.filter(t => {
+        const pm = pmMap.get(t.payment_method_id || "");
+        return pm?.type === "ewallet";
+      });
 
-      // Calculate total
-      const total = txns.reduce((sum, t) => sum + Number(t.amount), 0);
-      setTotalSpending(total);
+      setCcTransactions(ccTxns);
+      setEwalletTransactions(ewalletTxns);
 
-      // Calculate category breakdown
+      const ccTotal = ccTxns.reduce((sum, t) => sum + Number(t.amount), 0);
+      setTotalToPay(ccTotal);
+
+      const ewalletTotal = ewalletTxns
+        .filter(t => t.transaction_type === "expense")
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      setEwalletSpending(ewalletTotal);
+
       const catMap = new Map<string, { name: string; icon: string | null; total: number }>();
       for (const cat of cats || []) {
         catMap.set(cat.id, { name: cat.name, icon: cat.icon, total: 0 });
       }
-      for (const txn of txns) {
+      for (const txn of ccTxns) {
         if (txn.category_id) {
           const entry = catMap.get(txn.category_id);
           if (entry) {
@@ -222,6 +227,8 @@ export default function DashboardPage() {
     );
   }
 
+  const displayTransactions = ewalletTransactions.filter(t => t.transaction_type === "expense");
+
   return (
     <ViewTransition
       enter={{ "nav-forward": "nav-forward", "nav-back": "nav-back", default: "none" }}
@@ -229,7 +236,6 @@ export default function DashboardPage() {
       default="none"
     >
     <main className="mx-auto w-full max-w-lg px-4 py-4">
-      {/* Period Toggle */}
       <div className="mb-4 flex items-center justify-center">
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -257,15 +263,29 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Total Spending */}
       <div className="mb-6 text-center">
-        <p className="text-sm text-muted-foreground">Total Spending</p>
+        <p className="text-sm text-muted-foreground">Total to Pay</p>
         <p className="text-4xl font-bold tracking-tight font-mono">
-          {formatAmount(totalSpending)}
+          {formatAmount(totalToPay)}
         </p>
       </div>
 
-      {/* Category Breakdown */}
+      {ewalletSpending > 0 && (
+        <div className="mb-4">
+          <Card className="border-dashed">
+            <CardContent className="flex items-center justify-between py-3 pl-4 pr-3">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📱</span>
+                <span className="text-sm font-medium">eWallet Spending</span>
+              </div>
+              <span className="font-mono text-sm font-semibold">
+                {formatAmount(ewalletSpending)}
+              </span>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {categoryTotals.length > 0 && (
         <div className="mb-4 flex flex-col gap-2">
           {categoryTotals.map((cat) => (
@@ -286,7 +306,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Transactions by Date */}
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-base font-semibold">
           Transactions
@@ -300,7 +319,7 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {transactions.length === 0 ? (
+      {displayTransactions.length === 0 && ccTransactions.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <p className="text-muted-foreground">
@@ -313,8 +332,9 @@ export default function DashboardPage() {
         </Card>
       ) : (
         (() => {
-          // Group by date (limited to 5)
-          const limited = transactions.slice(0, 5);
+          const allDisplay = [...ccTransactions, ...ewalletTransactions.filter(t => t.transaction_type === "expense")];
+          const sorted = allDisplay.sort((a, b) => b.transaction_date.localeCompare(a.transaction_date) || (b.transaction_time || "").localeCompare(a.transaction_time || ""));
+          const limited = sorted.slice(0, 5);
           const grouped = limited.reduce<Record<string, typeof limited>>((acc, txn) => {
             const dateKey = txn.transaction_date;
             if (!acc[dateKey]) acc[dateKey] = [];
@@ -379,6 +399,14 @@ export default function DashboardPage() {
                                       <span className="text-xs text-muted-foreground">
                                         {ownershipLabels[txn.expense_ownership] || txn.expense_ownership}
                                       </span>
+                                      {pm && (
+                                        <>
+                                          <span className="text-xs text-muted-foreground">·</span>
+                                          <span className="text-xs text-muted-foreground">
+                                            {pm.type === "credit_card" ? "💳" : pm.type === "ewallet" ? "📱" : "💵"} {pm.name}
+                                          </span>
+                                        </>
+                                      )}
                                     </div>
                                   </div>
                                 </div>

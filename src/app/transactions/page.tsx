@@ -57,7 +57,6 @@ export default function TransactionsPage() {
         .from("transactions")
         .select("*")
         .eq("space_id", spaceId)
-        .eq("transaction_type", "expense")
         .eq("is_reimbursed", false)
         .order("transaction_date", { ascending: false }),
       supabase
@@ -89,6 +88,15 @@ export default function TransactionsPage() {
       maximumFractionDigits: 2,
     })}`;
 
+  const pmMap = new Map(paymentMethods.map(p => [p.id, p]));
+
+  const ccTransactions = transactions.filter(t => {
+    const pm = pmMap.get(t.payment_method_id || "");
+    return pm?.type === "credit_card";
+  });
+
+  const totalToPay = ccTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+
   const usedCategoryIds = [...new Set(transactions.map((t) => t.category_id).filter(Boolean))] as string[];
   const usedPmIds = [...new Set(transactions.map((t) => t.payment_method_id).filter(Boolean))] as string[];
   const usedOwnerships = [...new Set(transactions.map((t) => t.expense_ownership).filter(Boolean))];
@@ -101,8 +109,6 @@ export default function TransactionsPage() {
     if (filterOwnership && txn.expense_ownership !== filterOwnership) return false;
     return true;
   });
-
-  const totalFiltered = filteredTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
 
   const sortedTransactions = sortBy === "highest"
     ? [...filteredTransactions].sort((a, b) => Number(b.amount) - Number(a.amount))
@@ -134,7 +140,6 @@ export default function TransactionsPage() {
     >
     <main className="mx-auto w-full max-w-lg px-4 py-4 pb-4">
 
-      {/* Filter pills */}
       {(usedCategories.length > 0 || usedPaymentMethods.length > 0) && (
         <div className="sticky top-12 z-20 -mx-4 mb-2 space-y-2 border-b bg-background px-4 pb-3 pt-1 shadow-sm">
           {usedCategories.length > 0 && (
@@ -157,14 +162,13 @@ export default function TransactionsPage() {
               ))}
             </div>
           )}
-          {/* Payment methods hidden for now */}
-          {false && usedPaymentMethods.length > 0 && (
-            <div className="grid grid-cols-3 gap-2">
+          {usedPaymentMethods.length > 0 && (
+            <div className="-mx-4 flex gap-2 overflow-x-auto px-4">
               {usedPaymentMethods.map((pm) => (
                 <button
                   key={pm.id}
                   className={cn(
-                    "rounded-[4px] border px-3 py-1.5 text-xs font-medium transition-colors",
+                    "flex shrink-0 items-center gap-1.5 rounded-[4px] border px-3 py-1.5 text-xs font-medium transition-colors",
                     filterPaymentMethod === pm.id
                       ? "border-foreground bg-foreground text-primary-foreground"
                       : "border-input bg-background text-muted-foreground hover:bg-accent"
@@ -174,9 +178,10 @@ export default function TransactionsPage() {
                   }
                 >
                   <span
-                    className="mr-1.5 inline-block h-2 w-2 rounded-full"
+                    className="h-2 w-2 rounded-full"
                     style={{ backgroundColor: pm.color || "#6b7280" }}
                   />
+                  {pm.type === "credit_card" ? "💳" : pm.type === "ewallet" ? "📱" : "💵"}
                   {pm.name}
                 </button>
               ))}
@@ -205,15 +210,16 @@ export default function TransactionsPage() {
         </div>
       )}
 
-      {/* Summary */}
       <div className="mb-2 flex items-center justify-between">
         <span className="text-xs text-muted-foreground">
           {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? "s" : ""}
         </span>
-        <span className="font-mono text-sm font-semibold">{formatAmount(totalFiltered)}</span>
+        <div className="text-right">
+          <span className="text-xs text-muted-foreground">Total to Pay: </span>
+          <span className="font-mono text-sm font-semibold">{formatAmount(totalToPay)}</span>
+        </div>
       </div>
 
-      {/* Sort pills */}
       <div className="mb-3 grid grid-cols-3 gap-2">
         {(["date", "highest", "lowest"] as const).map((s) => (
           <button
@@ -285,6 +291,14 @@ export default function TransactionsPage() {
                                       <span className="text-xs text-muted-foreground">
                                         {ownershipLabels[txn.expense_ownership] || txn.expense_ownership}
                                       </span>
+                                      {pm && (
+                                        <>
+                                          <span className="text-xs text-muted-foreground">·</span>
+                                          <span className="text-xs text-muted-foreground">
+                                            {pm.type === "credit_card" ? "💳" : pm.type === "ewallet" ? "📱" : "💵"} {pm.name}
+                                          </span>
+                                        </>
+                                      )}
                                     </div>
                                 </div>
                               </div>

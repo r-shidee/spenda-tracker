@@ -76,24 +76,23 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
 
       if (cat) setCategory(cat);
 
-      const { data: txns } = await supabase
-        .from("transactions")
-        .select("*")
-        .eq("space_id", spaceId)
-        .eq("category_id", id)
-        .eq("transaction_type", "expense")
-        .eq("is_reimbursed", false)
-        .gte("transaction_date", startStr)
-        .lte("transaction_date", endStr)
-        .order("transaction_date", { ascending: false });
+      const [{ data: txns }, { data: pms }] = await Promise.all([
+        supabase
+          .from("transactions")
+          .select("*")
+          .eq("space_id", spaceId)
+          .eq("category_id", id)
+          .eq("is_reimbursed", false)
+          .gte("transaction_date", startStr)
+          .lte("transaction_date", endStr)
+          .order("transaction_date", { ascending: false }),
+        supabase
+          .from("payment_methods")
+          .select("*")
+          .eq("space_id", spaceId),
+      ]);
 
       if (txns) setTransactions(txns);
-
-      const { data: pms } = await supabase
-        .from("payment_methods")
-        .select("*")
-        .eq("space_id", spaceId);
-
       if (pms) setPaymentMethods(pms);
     } finally {
       setLoading(false);
@@ -135,16 +134,39 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
     );
   }
 
-  const filteredTransactions = filterOwnership
-    ? transactions.filter((t) => t.expense_ownership === filterOwnership)
-    : transactions;
+  const pmMap = new Map(paymentMethods.map(p => [p.id, p]));
 
-  const total = filteredTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+  const ccTransactions = transactions.filter(t => {
+    const pm = pmMap.get(t.payment_method_id || "");
+    return pm?.type === "credit_card";
+  });
+
+  const ewalletTransactions = transactions.filter(t => {
+    const pm = pmMap.get(t.payment_method_id || "");
+    return pm?.type === "ewallet" && t.transaction_type === "expense";
+  });
+
+  const filteredCcTransactions = filterOwnership
+    ? ccTransactions.filter((t) => t.expense_ownership === filterOwnership)
+    : ccTransactions;
+
+  const filteredEwalletTransactions = filterOwnership
+    ? ewalletTransactions.filter((t) => t.expense_ownership === filterOwnership)
+    : ewalletTransactions;
+
+  const totalToPay = filteredCcTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+  const ewalletTotal = filteredEwalletTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
 
   const usedOwnerships = [...new Set(transactions.map((t) => t.expense_ownership).filter(Boolean))];
 
-  // Group by date
-  const grouped = filteredTransactions.reduce<Record<string, Transaction[]>>((acc, txn) => {
+  const groupedCc = filteredCcTransactions.reduce<Record<string, Transaction[]>>((acc, txn) => {
+    const dateKey = txn.transaction_date;
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(txn);
+    return acc;
+  }, {});
+
+  const groupedEwallet = filteredEwalletTransactions.reduce<Record<string, Transaction[]>>((acc, txn) => {
     const dateKey = txn.transaction_date;
     if (!acc[dateKey]) acc[dateKey] = [];
     acc[dateKey].push(txn);
@@ -158,19 +180,18 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
       default="none"
     >
     <main className="mx-auto w-full max-w-lg px-4 py-4 pb-4">
-      {/* Header */}
       <div className="mb-6 text-center">
         <span className="text-3xl">{category?.icon || "💰"}</span>
         <h1 className="mt-2 text-lg font-medium">{category?.name || "Category"}</h1>
         <p className="font-mono text-2xl font-bold tracking-tight">
-          {formatAmount(total)}
+          {formatAmount(totalToPay)}
         </p>
         <p className="text-xs text-muted-foreground">
-          {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? "s" : ""}
+          {filteredCcTransactions.length} CC transaction{filteredCcTransactions.length !== 1 ? "s" : ""}
+          {ewalletTotal > 0 && ` · ${filteredEwalletTransactions.length} eWallet`}
         </p>
       </div>
 
-      {/* Period Toggle */}
       <div className="mb-4 flex items-center justify-center">
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -198,7 +219,6 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
-      {/* Ownership Filter */}
       {usedOwnerships.length > 1 && (
         <div className="mx-auto mb-4 grid w-2/3 grid-cols-2 gap-2">
           {usedOwnerships.map((o) => (
@@ -218,8 +238,23 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
         </div>
       )}
 
-      {/* Transactions */}
-      {Object.keys(grouped).length === 0 ? (
+      {ewalletTotal > 0 && (
+        <div className="mb-4">
+          <Card className="border-dashed">
+            <CardContent className="flex items-center justify-between py-3 pl-4 pr-3">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📱</span>
+                <span className="text-sm font-medium">eWallet Spending</span>
+              </div>
+              <span className="font-mono text-sm font-semibold">
+                {formatAmount(ewalletTotal)}
+              </span>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {Object.keys(groupedCc).length === 0 && Object.keys(groupedEwallet).length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <p className="text-muted-foreground">No transactions.</p>
@@ -227,7 +262,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
         </Card>
       ) : (
         <div className="space-y-4">
-          {Object.entries(grouped).map(([dateKey, txns]) => {
+          {Object.entries(groupedCc).map(([dateKey, txns]) => {
             const dayTotal = txns.reduce((sum, t) => sum + Number(t.amount), 0);
             return (
               <div key={dateKey}>
@@ -278,6 +313,67 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
               </div>
             );
           })}
+
+          {Object.keys(groupedEwallet).length > 0 && (
+            <>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs">eWallet</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+              {Object.entries(groupedEwallet).map(([dateKey, txns]) => {
+                const dayTotal = txns.reduce((sum, t) => sum + Number(t.amount), 0);
+                return (
+                  <div key={dateKey}>
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {formatDateHeader(dateKey)}
+                      </span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {formatAmount(dayTotal)}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {txns.map((txn) => {
+                        const pm = paymentMethods.find((p) => p.id === txn.payment_method_id);
+                        return (
+                          <Link key={txn.id} href={`/transactions/${txn.id}`}>
+                            <Card className="relative overflow-hidden transition-colors hover:bg-muted/50">
+                              <div
+                                className="absolute left-0 top-0 h-full w-1.5"
+                                style={{ backgroundColor: category?.color || "transparent" }}
+                              />
+                              <CardContent className="flex items-center justify-between py-3 pl-5 pr-3">
+                                <div className="flex items-center gap-3">
+                                  <div>
+                                    <p className="text-sm font-medium">
+                                      {txn.merchant_name}
+                                    </p>
+                                    <div className="flex items-center gap-1.5">
+                                      <p className="text-xs text-muted-foreground">
+                                        {pm?.name || "Unknown"}
+                                      </p>
+                                      <span className="text-xs text-muted-foreground">·</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {ownershipLabels[txn.expense_ownership] || txn.expense_ownership}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <span className="font-mono text-sm font-semibold">
+                                  {formatAmount(Number(txn.amount))}
+                                </span>
+                              </CardContent>
+                            </Card>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          )}
         </div>
       )}
     </main>

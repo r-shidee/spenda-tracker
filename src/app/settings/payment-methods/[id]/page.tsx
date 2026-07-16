@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Pencil, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import type { Database } from "@/lib/supabase/types";
 
 type PaymentMethod = Database["public"]["Tables"]["payment_methods"]["Row"];
@@ -29,12 +29,6 @@ const colorPresets = [
   "#6b7280", "#000000",
 ];
 
-const typeLabels: Record<string, string> = {
-  credit_card: "Credit Card",
-  ewallet: "eWallet",
-  cash: "Cash",
-};
-
 export default function PaymentMethodEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -42,11 +36,19 @@ export default function PaymentMethodEditPage({ params }: { params: Promise<{ id
   const [pm, setPm] = useState<PaymentMethod | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [ccMethods, setCcMethods] = useState<PaymentMethod[]>([]);
 
   const [editName, setEditName] = useState("");
   const [editType, setEditType] = useState<"credit_card" | "ewallet" | "cash">("cash");
   const [editColor, setEditColor] = useState("#6366f1");
   const [editActive, setEditActive] = useState(true);
+
+  const [editBalance, setEditBalance] = useState("0");
+  const [editAutoReload, setEditAutoReload] = useState(false);
+  const [editReloadAmount, setEditReloadAmount] = useState("20");
+  const [editReloadThreshold, setEditReloadThreshold] = useState("20");
+  const [editLinkedPmId, setEditLinkedPmId] = useState<string | null>(null);
+  const [editFeeRate, setEditFeeRate] = useState("1");
 
   useEffect(() => {
     async function load() {
@@ -62,7 +64,25 @@ export default function PaymentMethodEditPage({ params }: { params: Promise<{ id
         setEditType(data.type as "credit_card" | "ewallet" | "cash");
         setEditColor(data.color || "#6366f1");
         setEditActive(data.is_active);
+        setEditBalance(String(data.balance || 0));
+        setEditAutoReload(data.auto_reload_enabled || false);
+        setEditReloadAmount(String(data.reload_amount || 20));
+        setEditReloadThreshold(String(data.reload_threshold || 20));
+        setEditLinkedPmId(data.linked_payment_method_id || null);
+        setEditFeeRate(String((data.fee_rate || 0.01) * 100));
       }
+
+      const spaceId = data?.space_id;
+
+      const { data: allPms } = await supabase
+        .from("payment_methods")
+        .select("*")
+        .eq("type", "credit_card")
+        .eq("is_active", true)
+        .eq("space_id", spaceId);
+
+      if (allPms) setCcMethods(allPms);
+
       setLoading(false);
     }
     load();
@@ -71,10 +91,38 @@ export default function PaymentMethodEditPage({ params }: { params: Promise<{ id
   async function savePm() {
     if (!editName.trim()) return;
     setSaving(true);
-    await supabase
+
+    const updates: Record<string, unknown> = {
+      name: editName.trim(),
+      type: editType,
+      color: editColor,
+      is_active: editActive,
+    };
+
+    if (editType === "ewallet") {
+      const balance = parseFloat(editBalance);
+      updates.balance = isNaN(balance) ? 0 : balance;
+      updates.auto_reload_enabled = editAutoReload;
+      updates.reload_amount = parseFloat(editReloadAmount) || 20;
+      updates.reload_threshold = parseFloat(editReloadThreshold) || 20;
+      updates.linked_payment_method_id = editAutoReload ? editLinkedPmId : null;
+      updates.fee_rate = (parseFloat(editFeeRate) || 1) / 100;
+    }
+
+    console.log("Saving:", JSON.stringify(updates));
+
+    const { data, error } = await supabase
       .from("payment_methods")
-      .update({ name: editName.trim(), type: editType, color: editColor, is_active: editActive })
-      .eq("id", id);
+      .update(updates)
+      .eq("id", id)
+      .select();
+
+    if (error) {
+      console.error("Save error:", error);
+    } else {
+      console.log("Saved:", data);
+    }
+
     setSaving(false);
     router.back();
   }
@@ -108,6 +156,9 @@ export default function PaymentMethodEditPage({ params }: { params: Promise<{ id
 
   const typeIcon = editType === "credit_card" ? "💳" : editType === "ewallet" ? "📱" : "💵";
 
+  const pillClass = "rounded-[4px] border border-input bg-background px-3 py-2 text-xs font-medium transition-colors hover:bg-accent hover:text-accent-foreground";
+  const pillActiveClass = "rounded-[4px] border border-foreground bg-foreground px-3 py-2 text-xs font-medium transition-colors text-primary-foreground";
+
   return (
     <ViewTransition
       enter={{ "nav-forward": "nav-forward", "nav-back": "nav-back", default: "none" }}
@@ -116,12 +167,10 @@ export default function PaymentMethodEditPage({ params }: { params: Promise<{ id
     >
     <main className="mx-auto flex min-h-screen w-full max-w-lg flex-col px-4 py-4 pb-24">
 
-      {/* Icon */}
       <div className="mb-4 text-center">
         <span className="text-5xl">{typeIcon}</span>
       </div>
 
-      {/* Name */}
       <Card className="mb-3">
         <CardContent className="space-y-3 p-4">
           <div>
@@ -134,30 +183,14 @@ export default function PaymentMethodEditPage({ params }: { params: Promise<{ id
           </div>
           <div>
             <p className="mb-1 text-xs text-muted-foreground">Type</p>
-            <div className="grid grid-cols-3 gap-2">
-              {(["credit_card", "ewallet", "cash"] as const).map((t) => (
-                <button
-                  key={t}
-                  className={`rounded-[4px] border px-3 py-2 text-xs font-medium transition-colors ${
-                    editType === t
-                      ? "border-foreground bg-foreground text-primary-foreground"
-                      : "border-input bg-background text-muted-foreground hover:bg-accent"
-                  }`}
-                  onClick={() => setEditType(t)}
-                >
-                  {t === "credit_card" ? "💳 Card" : t === "ewallet" ? "📱 eWallet" : "💵 Cash"}
-                </button>
-              ))}
+            <div className="rounded-[4px] border border-input bg-background px-3 py-2 text-xs font-medium text-muted-foreground">
+              {editType === "credit_card" ? "💳 Credit Card" : editType === "ewallet" ? "📱 eWallet" : "💵 Cash"}
             </div>
           </div>
           <div>
             <p className="mb-1 text-xs text-muted-foreground">Status</p>
             <button
-              className={`w-full rounded-[4px] border px-3 py-2 text-xs font-medium transition-colors ${
-                editActive
-                  ? "border-foreground bg-foreground text-primary-foreground"
-                  : "border-input bg-background text-muted-foreground hover:bg-accent"
-              }`}
+              className={editActive ? pillActiveClass : pillClass}
               onClick={() => setEditActive(!editActive)}
             >
               {editActive ? "Active" : "Inactive"}
@@ -166,7 +199,6 @@ export default function PaymentMethodEditPage({ params }: { params: Promise<{ id
         </CardContent>
       </Card>
 
-      {/* Color */}
       <Card className="mb-3">
         <CardContent className="space-y-3 p-4">
           <p className="text-xs text-muted-foreground">Color</p>
@@ -183,11 +215,109 @@ export default function PaymentMethodEditPage({ params }: { params: Promise<{ id
         </CardContent>
       </Card>
 
-      {/* Spacer */}
+      {editType === "ewallet" && (
+        <>
+          <Card className="mb-3">
+            <CardContent className="space-y-3 p-4">
+              <p className="text-xs text-muted-foreground">Balance</p>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">RM</span>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={editBalance}
+                  onChange={(e) => setEditBalance(e.target.value)}
+                  className="flex-1"
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Enter your balance as of your statement close date (e.g., 25th of each month)
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="mb-3">
+            <CardContent className="space-y-3 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">Auto Reload</p>
+                <button
+                  className={editAutoReload ? pillActiveClass : pillClass}
+                  onClick={() => setEditAutoReload(!editAutoReload)}
+                >
+                  {editAutoReload ? "ON" : "OFF"}
+                </button>
+              </div>
+
+              {editAutoReload && (
+                <>
+                  <div>
+                    <p className="mb-1 text-xs text-muted-foreground">Reload Amount</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">RM</span>
+                      <Input
+                        type="number"
+                        step="1"
+                        value={editReloadAmount}
+                        onChange={(e) => setEditReloadAmount(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs text-muted-foreground">Reload When Below</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">RM</span>
+                      <Input
+                        type="number"
+                        step="1"
+                        value={editReloadThreshold}
+                        onChange={(e) => setEditReloadThreshold(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs text-muted-foreground">Reload From</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {ccMethods.map((cc) => (
+                        <button
+                          key={cc.id}
+                          className={editLinkedPmId === cc.id ? pillActiveClass : pillClass}
+                          onClick={() => setEditLinkedPmId(cc.id)}
+                        >
+                          💳 {cc.name}
+                        </button>
+                      ))}
+                      {ccMethods.length === 0 && (
+                        <p className="text-xs text-muted-foreground col-span-2">
+                          No credit cards. Add one first.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs text-muted-foreground">Fee Rate</p>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="10"
+                        value={editFeeRate}
+                        onChange={(e) => setEditFeeRate(e.target.value)}
+                        className="w-20"
+                      />
+                      <span className="text-sm text-muted-foreground">%</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+
       <div className="flex-1" />
 
-      {/* Bottom bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background">
+      <div className="fixed bottom-16 left-0 right-0 z-50 border-t bg-background">
         <div className="mx-auto flex max-w-lg gap-2 px-4 py-3">
           <Button
             variant="outline"

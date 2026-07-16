@@ -89,6 +89,12 @@ export interface Database {
           type: "credit_card" | "ewallet" | "cash";
           is_active: boolean;
           color: string | null;
+          balance: number;
+          auto_reload_enabled: boolean;
+          reload_amount: number;
+          reload_threshold: number;
+          linked_payment_method_id: string | null;
+          fee_rate: number;
           created_at: string;
         };
         Insert: {
@@ -98,6 +104,12 @@ export interface Database {
           type: "credit_card" | "ewallet" | "cash";
           is_active?: boolean;
           color?: string | null;
+          balance?: number;
+          auto_reload_enabled?: boolean;
+          reload_amount?: number;
+          reload_threshold?: number;
+          linked_payment_method_id?: string | null;
+          fee_rate?: number;
           created_at?: string;
         };
         Update: {
@@ -107,6 +119,12 @@ export interface Database {
           type?: "credit_card" | "ewallet" | "cash";
           is_active?: boolean;
           color?: string | null;
+          balance?: number;
+          auto_reload_enabled?: boolean;
+          reload_amount?: number;
+          reload_threshold?: number;
+          linked_payment_method_id?: string | null;
+          fee_rate?: number;
           created_at?: string;
         };
       };

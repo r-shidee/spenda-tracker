@@ -116,7 +116,7 @@ export default function AddPaymentMethodPage() {
 
       <div className="flex-1" />
 
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background">
+      <div className="fixed bottom-16 left-0 right-0 z-50 border-t bg-background">
         <div className="mx-auto max-w-lg px-4 py-3">
           <Button
             className="w-full"

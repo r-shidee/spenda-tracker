@@ -155,7 +155,7 @@ export default function CategoryEditPage({ params }: { params: Promise<{ id: str
       <div className="flex-1" />
 
       {/* Bottom bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background">
+      <div className="fixed bottom-16 left-0 right-0 z-50 border-t bg-background">
         <div className="mx-auto flex max-w-lg gap-2 px-4 py-3">
           <Button
             variant="outline"
