@@ -17,7 +17,7 @@ export default function AddInstallmentPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  const [step, setStep] = useState<"name" | "amount" | "total" | "elapsed" | "billing" | "payment" | "category">("name");
+  const [step, setStep] = useState<string>("name");
   const [name, setName] = useState("");
   const [amountPerMonth, setAmountPerMonth] = useState("0.00");
   const [totalMonths, setTotalMonths] = useState("24");
@@ -91,18 +91,18 @@ export default function AddInstallmentPage() {
   }
 
   function nextStep() {
-    const steps = ["name", "amount", "total", "elapsed", "billing", "payment", "category"] as const;
+    const steps: readonly string[] = ["name", "amount", "total", "elapsed", "billing", "payment", "category"];
     const idx = steps.indexOf(step);
     if (idx < steps.length - 1) {
-      setStep(steps[idx + 1]);
+      setStep(steps[idx + 1] as typeof step);
     }
   }
 
   function prevStep() {
-    const steps = ["name", "amount", "total", "elapsed", "billing", "payment", "category"] as const;
+    const steps: readonly string[] = ["name", "amount", "total", "elapsed", "billing", "payment", "category"];
     const idx = steps.indexOf(step);
     if (idx > 0) {
-      setStep(steps[idx - 1]);
+      setStep(steps[idx - 1] as typeof step);
     } else {
       router.back();
     }
@@ -132,7 +132,7 @@ export default function AddInstallmentPage() {
     router.refresh();
   }
 
-  const allSteps = ["name", "amount", "total", "elapsed", "billing", "payment", "category"] as const;
+  const allSteps: readonly string[] = ["name", "amount", "total", "elapsed", "billing", "payment", "category"];
   const stepIndex = allSteps.indexOf(step);
 
   const pillClass = cn(

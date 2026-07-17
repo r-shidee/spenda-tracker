@@ -72,8 +72,8 @@ export default function InstallmentEditPage({ params }: { params: Promise<{ id: 
         const spaceId = memberRows?.[0]?.space_id;
         if (spaceId) {
           const [cats, pms] = await Promise.all([
-            supabase.from("categories").select("id, name, icon").eq("space_id", spaceId).order("sort_order"),
-            supabase.from("payment_methods").select("id, name, type").eq("space_id", spaceId).eq("type", "credit_card"),
+            supabase.from("categories").select("*").eq("space_id", spaceId).order("sort_order"),
+            supabase.from("payment_methods").select("*").eq("space_id", spaceId).eq("type", "credit_card"),
           ]);
           if (cats.data) setCategories(cats.data);
           if (pms.data) setPaymentMethods(pms.data);

@@ -42,11 +42,11 @@ export default function InstallmentsPage() {
         .order("created_at", { ascending: false }),
       supabase
         .from("categories")
-        .select("id, name, icon")
+        .select("*")
         .eq("space_id", spaceId),
       supabase
         .from("payment_methods")
-        .select("id, name, type")
+        .select("*")
         .eq("space_id", spaceId),
     ]);
 
