@@ -128,6 +128,35 @@ export interface Database {
           created_at?: string;
         };
       };
+      subcategories: {
+        Row: {
+          id: string;
+          space_id: string;
+          category_id: string;
+          name: string;
+          icon: string | null;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          space_id: string;
+          category_id: string;
+          name: string;
+          icon?: string | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          space_id?: string;
+          category_id?: string;
+          name?: string;
+          icon?: string | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+      };
       transactions: {
         Row: {
           id: string;
@@ -139,6 +168,7 @@ export interface Database {
           transaction_date: string;
           transaction_time: string | null;
           category_id: string | null;
+          subcategory_id: string | null;
           payment_method_id: string | null;
           transaction_type: "expense" | "transfer";
           expense_ownership:
@@ -160,6 +190,7 @@ export interface Database {
           transaction_date: string;
           transaction_time?: string | null;
           category_id?: string | null;
+          subcategory_id?: string | null;
           payment_method_id?: string | null;
           transaction_type?: "expense" | "transfer";
           expense_ownership?:
@@ -181,6 +212,7 @@ export interface Database {
           transaction_date?: string;
           transaction_time?: string | null;
           category_id?: string | null;
+          subcategory_id?: string | null;
           payment_method_id?: string | null;
           transaction_type?: "expense" | "transfer";
           expense_ownership?:

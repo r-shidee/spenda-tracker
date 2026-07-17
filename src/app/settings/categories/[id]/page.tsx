@@ -18,10 +18,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Pencil, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import type { Database } from "@/lib/supabase/types";
 
 type Category = Database["public"]["Tables"]["categories"]["Row"];
+type Subcategory = Database["public"]["Tables"]["subcategories"]["Row"];
 
 const COLORS = ["#ef4444","#f59e0b","#22c55e","#3b82f6","#8b5cf6","#ec4899","#14b8a6","#6b7280"];
 
@@ -36,6 +37,8 @@ export default function CategoryEditPage({ params }: { params: Promise<{ id: str
   const [editName, setEditName] = useState("");
   const [editIcon, setEditIcon] = useState("");
   const [editColor, setEditColor] = useState("#6b7280");
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [newSubcategory, setNewSubcategory] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -51,6 +54,15 @@ export default function CategoryEditPage({ params }: { params: Promise<{ id: str
         setEditIcon(data.icon || "");
         setEditColor(data.color || "#6b7280");
       }
+
+      const { data: subcats } = await supabase
+        .from("subcategories")
+        .select("*")
+        .eq("category_id", id)
+        .order("sort_order");
+
+      if (subcats) setSubcategories(subcats);
+
       setLoading(false);
     }
     load();
@@ -80,6 +92,50 @@ export default function CategoryEditPage({ params }: { params: Promise<{ id: str
     await supabase.from("categories").delete().eq("id", id);
     router.push("/settings/categories");
     router.refresh();
+  }
+
+  async function addSubcategory() {
+    if (!newSubcategory.trim()) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: memberRows } = await supabase
+      .from("space_members")
+      .select("space_id")
+      .eq("user_id", user.id)
+      .limit(1);
+    const spaceId = memberRows?.[0]?.space_id;
+    if (!spaceId) return;
+
+    const { data } = await supabase
+      .from("subcategories")
+      .insert({
+        space_id: spaceId,
+        category_id: id,
+        name: newSubcategory.trim(),
+        sort_order: subcategories.length,
+      })
+      .select()
+      .single();
+
+    if (data) {
+      setSubcategories([...subcategories, data]);
+      setNewSubcategory("");
+    }
+  }
+
+  async function deleteSubcategory(subId: string) {
+    const { count } = await supabase
+      .from("transactions")
+      .select("*", { count: "exact", head: true })
+      .eq("subcategory_id", subId);
+
+    if (count && count > 0) {
+      alert(`Cannot delete: ${count} transaction(s) use this subcategory.`);
+      return;
+    }
+    await supabase.from("subcategories").delete().eq("id", subId);
+    setSubcategories(subcategories.filter((s) => s.id !== subId));
   }
 
   if (loading) {
@@ -147,6 +203,49 @@ export default function CategoryEditPage({ params }: { params: Promise<{ id: str
                 onClick={() => setEditColor(c)}
               />
             ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Subcategories */}
+      <Card className="mb-3">
+        <CardContent className="space-y-3 p-4">
+          <p className="text-xs text-muted-foreground">Subcategories</p>
+          {subcategories.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {subcategories.map((sub) => (
+                <span
+                  key={sub.id}
+                  className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs font-medium"
+                >
+                  {sub.name}
+                  <button
+                    className="ml-1 text-muted-foreground hover:text-destructive"
+                    onClick={() => deleteSubcategory(sub.id)}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Input
+              value={newSubcategory}
+              onChange={(e) => setNewSubcategory(e.target.value)}
+              placeholder="New subcategory name"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") addSubcategory();
+              }}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={addSubcategory}
+              disabled={!newSubcategory.trim()}
+            >
+              Add
+            </Button>
           </div>
         </CardContent>
       </Card>

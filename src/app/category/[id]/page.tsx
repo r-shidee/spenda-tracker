@@ -11,6 +11,7 @@ import type { Database } from "@/lib/supabase/types";
 type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
 type Category = Database["public"]["Tables"]["categories"]["Row"];
 type PaymentMethod = Database["public"]["Tables"]["payment_methods"]["Row"];
+type Subcategory = Database["public"]["Tables"]["subcategories"]["Row"];
 
 const ownershipLabels: Record<string, string> = {
   self: "Self",
@@ -25,9 +26,11 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
   const [category, setCategory] = useState<Category | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [useStatementCycle, setUseStatementCycle] = useState(true);
   const [filterOwnership, setFilterOwnership] = useState<string | null>(null);
+  const [filterSubcategory, setFilterSubcategory] = useState<string | null>(null);
 
   async function loadData() {
     setLoading(true);
@@ -76,7 +79,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
 
       if (cat) setCategory(cat);
 
-      const [{ data: txns }, { data: pms }] = await Promise.all([
+      const [{ data: txns }, { data: pms }, { data: subcats }] = await Promise.all([
         supabase
           .from("transactions")
           .select("*")
@@ -90,10 +93,17 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
           .from("payment_methods")
           .select("*")
           .eq("space_id", spaceId),
+        supabase
+          .from("subcategories")
+          .select("*")
+          .eq("space_id", spaceId)
+          .eq("category_id", id)
+          .order("sort_order"),
       ]);
 
       if (txns) setTransactions(txns);
       if (pms) setPaymentMethods(pms);
+      if (subcats) setSubcategories(subcats);
     } finally {
       setLoading(false);
     }
@@ -101,6 +111,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
 
   useEffect(() => {
     loadData();
+    setFilterSubcategory(null);
   }, [id, useStatementCycle]);
 
   const formatAmount = (amount: number) =>
@@ -154,19 +165,27 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
     ? ewalletTransactions.filter((t) => t.expense_ownership === filterOwnership)
     : ewalletTransactions;
 
-  const totalToPay = filteredCcTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
-  const ewalletTotal = filteredEwalletTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+  const finalCcTransactions = filterSubcategory
+    ? filteredCcTransactions.filter((t) => t.subcategory_id === filterSubcategory)
+    : filteredCcTransactions;
+
+  const finalEwalletTransactions = filterSubcategory
+    ? filteredEwalletTransactions.filter((t) => t.subcategory_id === filterSubcategory)
+    : filteredEwalletTransactions;
+
+  const totalToPay = finalCcTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+  const ewalletTotal = finalEwalletTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
 
   const usedOwnerships = [...new Set(transactions.map((t) => t.expense_ownership).filter(Boolean))];
 
-  const groupedCc = filteredCcTransactions.reduce<Record<string, Transaction[]>>((acc, txn) => {
+  const groupedCc = finalCcTransactions.reduce<Record<string, Transaction[]>>((acc, txn) => {
     const dateKey = txn.transaction_date;
     if (!acc[dateKey]) acc[dateKey] = [];
     acc[dateKey].push(txn);
     return acc;
   }, {});
 
-  const groupedEwallet = filteredEwalletTransactions.reduce<Record<string, Transaction[]>>((acc, txn) => {
+  const groupedEwallet = finalEwalletTransactions.reduce<Record<string, Transaction[]>>((acc, txn) => {
     const dateKey = txn.transaction_date;
     if (!acc[dateKey]) acc[dateKey] = [];
     acc[dateKey].push(txn);
@@ -187,8 +206,8 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
           {formatAmount(totalToPay)}
         </p>
         <p className="text-xs text-muted-foreground">
-          {filteredCcTransactions.length} CC transaction{filteredCcTransactions.length !== 1 ? "s" : ""}
-          {ewalletTotal > 0 && ` · ${filteredEwalletTransactions.length} eWallet`}
+          {finalCcTransactions.length} CC transaction{finalCcTransactions.length !== 1 ? "s" : ""}
+          {ewalletTotal > 0 && ` · ${finalEwalletTransactions.length} eWallet`}
         </p>
       </div>
 
@@ -238,6 +257,36 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
         </div>
       )}
 
+      {subcategories.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-2 justify-center">
+          <button
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              filterSubcategory === null
+                ? "border-foreground bg-foreground text-primary-foreground"
+                : "border-input bg-background text-muted-foreground hover:bg-accent"
+            )}
+            onClick={() => setFilterSubcategory(null)}
+          >
+            All
+          </button>
+          {subcategories.map((sub) => (
+            <button
+              key={sub.id}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                filterSubcategory === sub.id
+                  ? "border-foreground bg-foreground text-primary-foreground"
+                  : "border-input bg-background text-muted-foreground hover:bg-accent"
+              )}
+              onClick={() => setFilterSubcategory(filterSubcategory === sub.id ? null : sub.id)}
+            >
+              {sub.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {ewalletTotal > 0 && (
         <div className="mb-4">
           <Card className="border-dashed">
@@ -277,6 +326,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                 <div className="flex flex-col gap-2">
                   {txns.map((txn) => {
                     const pm = paymentMethods.find((p) => p.id === txn.payment_method_id);
+                    const sub = subcategories.find((s) => s.id === txn.subcategory_id);
                     return (
                       <Link key={txn.id} href={`/transactions/${txn.id}`}>
                         <Card className="relative overflow-hidden transition-colors hover:bg-muted/50">
@@ -291,6 +341,14 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                                   {txn.merchant_name}
                                 </p>
                                 <div className="flex items-center gap-1.5">
+                                  {sub && (
+                                    <>
+                                      <p className="text-xs text-muted-foreground">
+                                        {sub.name}
+                                      </p>
+                                      <span className="text-xs text-muted-foreground">·</span>
+                                    </>
+                                  )}
                                   <p className="text-xs text-muted-foreground">
                                     {pm?.name || "Unknown"}
                                   </p>
@@ -334,40 +392,49 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                       </span>
                     </div>
                     <div className="flex flex-col gap-2">
-                      {txns.map((txn) => {
-                        const pm = paymentMethods.find((p) => p.id === txn.payment_method_id);
-                        return (
-                          <Link key={txn.id} href={`/transactions/${txn.id}`}>
-                            <Card className="relative overflow-hidden transition-colors hover:bg-muted/50">
-                              <div
-                                className="absolute left-0 top-0 h-full w-1.5"
-                                style={{ backgroundColor: category?.color || "transparent" }}
-                              />
-                              <CardContent className="flex items-center justify-between py-3 pl-5 pr-3">
-                                <div className="flex items-center gap-3">
-                                  <div>
-                                    <p className="text-sm font-medium">
-                                      {txn.merchant_name}
-                                    </p>
-                                    <div className="flex items-center gap-1.5">
+              {txns.map((txn) => {
+                    const pm = paymentMethods.find((p) => p.id === txn.payment_method_id);
+                    const sub = subcategories.find((s) => s.id === txn.subcategory_id);
+                    return (
+                      <Link key={txn.id} href={`/transactions/${txn.id}`}>
+                        <Card className="relative overflow-hidden transition-colors hover:bg-muted/50">
+                          <div
+                            className="absolute left-0 top-0 h-full w-1.5"
+                            style={{ backgroundColor: category?.color || "transparent" }}
+                          />
+                          <CardContent className="flex items-center justify-between py-3 pl-5 pr-3">
+                            <div className="flex items-center gap-3">
+                              <div>
+                                <p className="text-sm font-medium">
+                                  {txn.merchant_name}
+                                </p>
+                                <div className="flex items-center gap-1.5">
+                                  {sub && (
+                                    <>
                                       <p className="text-xs text-muted-foreground">
-                                        {pm?.name || "Unknown"}
+                                        {sub.name}
                                       </p>
                                       <span className="text-xs text-muted-foreground">·</span>
-                                      <span className="text-xs text-muted-foreground">
-                                        {ownershipLabels[txn.expense_ownership] || txn.expense_ownership}
-                                      </span>
-                                    </div>
-                                  </div>
+                                    </>
+                                  )}
+                                  <p className="text-xs text-muted-foreground">
+                                    {pm?.name || "Unknown"}
+                                  </p>
+                                  <span className="text-xs text-muted-foreground">·</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {ownershipLabels[txn.expense_ownership] || txn.expense_ownership}
+                                  </span>
                                 </div>
-                                <span className="font-mono text-sm font-semibold">
-                                  {formatAmount(Number(txn.amount))}
-                                </span>
-                              </CardContent>
-                            </Card>
-                          </Link>
-                        );
-                      })}
+                              </div>
+                            </div>
+                            <span className="font-mono text-sm font-semibold">
+                              {formatAmount(Number(txn.amount))}
+                            </span>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    );
+                  })}
                     </div>
                   </div>
                 );

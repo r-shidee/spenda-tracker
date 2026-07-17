@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import type { Database } from "@/lib/supabase/types";
 
 type Category = Database["public"]["Tables"]["categories"]["Row"];
+type Subcategory = Database["public"]["Tables"]["subcategories"]["Row"];
 type PaymentMethod = Database["public"]["Tables"]["payment_methods"]["Row"];
 
 const ownershipOptions = [
@@ -20,17 +21,14 @@ const ownershipOptions = [
   { value: "paid_for_others", label: "Reimbursable" },
 ] as const;
 
-const STEPS = ["amount", "datetime", "payment", "category", "details"] as const;
-type Step = (typeof STEPS)[number];
-
 export default function AddExpensePage() {
   const router = useRouter();
   const supabase = createClient();
 
-  const [step, setStep] = useState<Step>("amount");
   const [amount, setAmount] = useState("0.00");
   const [merchantName, setMerchantName] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [subcategoryId, setSubcategoryId] = useState<string | null>(null);
   const [paymentMethodId, setPaymentMethodId] = useState<string | null>(null);
   const [ownership, setOwnership] = useState<string>("self");
   const [transactionDate, setTransactionDate] = useState(
@@ -38,10 +36,12 @@ export default function AddExpensePage() {
   );
   const [transactionTime, setTransactionTime] = useState<string>("");
   const [categories, setCategories] = useState<Category[]>([]);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [step, setStep] = useState<"amount" | "datetime" | "payment" | "category" | "subcategory" | "details">("amount");
 
   async function loadData() {
     const {
@@ -82,6 +82,16 @@ export default function AddExpensePage() {
     loadData();
   }, []);
 
+  async function loadSubcategories(catId: string) {
+    const { data } = await supabase
+      .from("subcategories")
+      .select("*")
+      .eq("category_id", catId)
+      .order("sort_order");
+
+    setSubcategories(data || []);
+  }
+
   function handleAmountInput(digit: string) {
     setAmount((prev) => {
       const clean = prev.replace(".", "");
@@ -106,16 +116,31 @@ export default function AddExpensePage() {
   }
 
   function nextStep() {
-    const idx = STEPS.indexOf(step);
-    if (idx < STEPS.length - 1) {
-      setStep(STEPS[idx + 1]);
+    if (step === "category" && categoryId) {
+      loadSubcategories(categoryId);
+      setStep("subcategory");
+      return;
+    }
+    if (step === "subcategory") {
+      setStep("details");
+      return;
+    }
+    const steps = ["amount", "datetime", "payment", "category", "details"] as const;
+    const idx = steps.indexOf(step as typeof steps[number]);
+    if (idx < steps.length - 1) {
+      setStep(steps[idx + 1] as typeof steps[number]);
     }
   }
 
   function prevStep() {
-    const idx = STEPS.indexOf(step);
+    if (step === "subcategory") {
+      setStep("category");
+      return;
+    }
+    const steps = ["amount", "datetime", "payment", "category", "details"] as const;
+    const idx = steps.indexOf(step as typeof steps[number]);
     if (idx > 0) {
-      setStep(STEPS[idx - 1]);
+      setStep(steps[idx - 1] as typeof steps[number]);
     } else {
       router.back();
     }
@@ -141,6 +166,7 @@ export default function AddExpensePage() {
       transaction_date: transactionDate,
       transaction_time: transactionTime || null,
       category_id: categoryId,
+      subcategory_id: subcategories.length > 0 ? subcategoryId : null,
       payment_method_id: paymentMethodId,
       expense_ownership: ownership as Database["public"]["Enums"]["expense_ownership"],
       transaction_type: "expense",
@@ -199,8 +225,6 @@ export default function AddExpensePage() {
               .from("payment_methods")
               .update({ balance: updatedBalance })
               .eq("id", selectedPm.id);
-
-
           }
         }
       }
@@ -211,7 +235,10 @@ export default function AddExpensePage() {
     setSaving(false);
   }
 
-  const stepIndex = STEPS.indexOf(step);
+  const allSteps = subcategories.length > 0
+    ? ["amount", "datetime", "payment", "category", "subcategory", "details"]
+    : ["amount", "datetime", "payment", "category", "details"];
+  const stepIndex = allSteps.indexOf(step);
 
   const pillClass = cn(
     "rounded-[4px] border border-input bg-background px-4 py-2.5 text-sm font-medium transition-colors",
@@ -239,7 +266,7 @@ export default function AddExpensePage() {
     >
     <main className="mx-auto flex h-[calc(100vh-3rem-4rem)] w-full max-w-lg flex-col px-4 py-4 pb-20 overflow-hidden">
       <div className="mb-4 flex items-center justify-center gap-2">
-        {STEPS.map((_, i) => (
+        {allSteps.map((_, i) => (
           <div
             key={i}
             className={cn(
@@ -367,12 +394,42 @@ export default function AddExpensePage() {
                   categoryId === cat.id ? pillActiveClass : pillClass,
                   "flex flex-col items-center gap-0.5 py-2"
                 )}
-                onClick={() =>
-                  setCategoryId(categoryId === cat.id ? null : cat.id)
-                }
+                onClick={() => {
+                  setCategoryId(categoryId === cat.id ? null : cat.id);
+                  setSubcategoryId(null);
+                }}
               >
                 <span className="text-lg">{cat.icon}</span>
                 <span className="text-[10px] leading-tight">{cat.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {step === "subcategory" && (
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <p className="mb-2 text-sm text-muted-foreground">
+            {categories.find(c => c.id === categoryId)?.icon}{" "}
+            {categories.find(c => c.id === categoryId)?.name}
+          </p>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Pick a subcategory <span className="text-xs">(optional)</span>
+          </p>
+          <div className="grid grid-cols-3 gap-2 w-full max-w-sm">
+            {subcategories.map((sub) => (
+              <button
+                key={sub.id}
+                className={cn(
+                  subcategoryId === sub.id ? pillActiveClass : pillClass,
+                  "flex flex-col items-center gap-0.5 py-2"
+                )}
+                onClick={() =>
+                  setSubcategoryId(subcategoryId === sub.id ? null : sub.id)
+                }
+              >
+                <span className="text-lg">{sub.icon || "📌"}</span>
+                <span className="text-[10px] leading-tight">{sub.name}</span>
               </button>
             ))}
           </div>
@@ -446,7 +503,7 @@ export default function AddExpensePage() {
               onClick={nextStep}
               disabled={step === "amount" && parseFloat(amount) === 0}
             >
-              Next
+              {step === "subcategory" ? "Skip" : "Next"}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           )}
