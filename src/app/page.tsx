@@ -160,6 +160,7 @@ export default function DashboardPage() {
       const toUpdate: { id: string; months_elapsed: number; is_completed: boolean }[] = [];
 
       for (const inst of insts) {
+        if (!inst.is_auto) continue;
         const billingDay = inst.billing_day;
         const billingDateThisMonth = new Date(now.getFullYear(), now.getMonth(), billingDay);
         if (now > billingDateThisMonth && inst.months_elapsed < inst.total_months) {

@@ -17,7 +17,7 @@ export default function AddInstallmentPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  const [step, setStep] = useState<string>("name");
+  const [step, setStep] = useState<string>("type");
   const [name, setName] = useState("");
   const [amountPerMonth, setAmountPerMonth] = useState("0.00");
   const [totalMonths, setTotalMonths] = useState("24");
@@ -25,6 +25,7 @@ export default function AddInstallmentPage() {
   const [billingDay, setBillingDay] = useState("25");
   const [paymentMethodId, setPaymentMethodId] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [isAuto, setIsAuto] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [spaceId, setSpaceId] = useState<string | null>(null);
@@ -57,7 +58,6 @@ export default function AddInstallmentPage() {
         .select("*")
         .eq("space_id", memberData.space_id)
         .eq("is_active", true)
-        .eq("type", "credit_card")
         .order("name"),
     ]);
 
@@ -91,18 +91,18 @@ export default function AddInstallmentPage() {
   }
 
   function nextStep() {
-    const steps: readonly string[] = ["name", "amount", "total", "elapsed", "billing", "payment", "category"];
+    const steps: readonly string[] = ["type", "name", "amount", "total", "elapsed", "billing", "payment", "category"];
     const idx = steps.indexOf(step);
     if (idx < steps.length - 1) {
-      setStep(steps[idx + 1] as typeof step);
+      setStep(steps[idx + 1]);
     }
   }
 
   function prevStep() {
-    const steps: readonly string[] = ["name", "amount", "total", "elapsed", "billing", "payment", "category"];
+    const steps: readonly string[] = ["type", "name", "amount", "total", "elapsed", "billing", "payment", "category"];
     const idx = steps.indexOf(step);
     if (idx > 0) {
-      setStep(steps[idx - 1] as typeof step);
+      setStep(steps[idx - 1]);
     } else {
       router.back();
     }
@@ -121,6 +121,7 @@ export default function AddInstallmentPage() {
       billing_day: parseInt(billingDay) || 25,
       payment_method_id: paymentMethodId,
       category_id: categoryId,
+      is_auto: isAuto,
     });
 
     if (error) {
@@ -132,7 +133,7 @@ export default function AddInstallmentPage() {
     router.refresh();
   }
 
-  const allSteps: readonly string[] = ["name", "amount", "total", "elapsed", "billing", "payment", "category"];
+  const allSteps: readonly string[] = ["type", "name", "amount", "total", "elapsed", "billing", "payment", "category"];
   const stepIndex = allSteps.indexOf(step);
 
   const pillClass = cn(
@@ -150,6 +151,12 @@ export default function AddInstallmentPage() {
     ["7", "8", "9"],
     [".", "0", "⌫"],
   ];
+
+  const filteredPms = isAuto
+    ? paymentMethods.filter(p => p.type === "credit_card")
+    : paymentMethods.filter(p => p.type === "ewallet");
+
+  const canSkip = step === "payment" || step === "category";
 
   return (
     <ViewTransition
@@ -170,12 +177,44 @@ export default function AddInstallmentPage() {
         ))}
       </div>
 
+      {step === "type" && (
+        <div className="flex-1 flex flex-col items-center justify-center gap-4">
+          <p className="text-sm text-muted-foreground">What type of installment?</p>
+          <div className="grid grid-cols-2 gap-3 w-full max-w-sm">
+            <button
+              className={cn(
+                isAuto ? pillActiveClass : pillClass,
+                "flex flex-col items-center gap-2 py-6"
+              )}
+              onClick={() => setIsAuto(true)}
+            >
+              <span className="text-3xl">💳</span>
+              <span className="text-sm font-medium">Credit Card</span>
+              <span className="text-[10px] opacity-70">Auto-charged monthly</span>
+            </button>
+            <button
+              className={cn(
+                !isAuto ? pillActiveClass : pillClass,
+                "flex flex-col items-center gap-2 py-6"
+              )}
+              onClick={() => setIsAuto(false)}
+            >
+              <span className="text-3xl">📱</span>
+              <span className="text-sm font-medium">Pay Later</span>
+              <span className="text-[10px] opacity-70">Manual payment</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {step === "name" && (
         <div className="flex-1 flex flex-col items-center justify-center gap-4">
-          <p className="text-sm text-muted-foreground">Installment name</p>
+          <p className="text-sm text-muted-foreground">
+            {isAuto ? "💳 Credit Card" : "📱 Pay Later"} installment
+          </p>
           <div className="w-full max-w-xs">
             <Input
-              placeholder="e.g. 3Cat - 19/24"
+              placeholder="e.g. Levis Jeans - 1/3"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="h-12 text-base text-center"
@@ -234,7 +273,9 @@ export default function AddInstallmentPage() {
         <div className="flex-1 flex flex-col items-center justify-center gap-4">
           <p className="text-sm text-muted-foreground">Months already paid</p>
           <p className="text-xs text-muted-foreground text-center max-w-xs">
-            How many months have already been charged?
+            {isAuto
+              ? "How many months have already been charged?"
+              : "How many months have you already paid?"}
           </p>
           <div className="flex items-center gap-6">
             <button
@@ -258,7 +299,9 @@ export default function AddInstallmentPage() {
         <div className="flex-1 flex flex-col items-center justify-center gap-4">
           <p className="text-sm text-muted-foreground">Billing day of month</p>
           <p className="text-xs text-muted-foreground text-center max-w-xs">
-            Day of the month this installment is charged to your CC
+            {isAuto
+              ? "Day of the month this is charged to your CC"
+              : "Day of the month payment is due"}
           </p>
           <div className="w-full max-w-xs">
             <Input
@@ -276,10 +319,10 @@ export default function AddInstallmentPage() {
       {step === "payment" && (
         <div className="flex-1 flex flex-col items-center justify-center">
           <p className="mb-4 text-sm text-muted-foreground">
-            Which credit card?
+            {isAuto ? "Which credit card?" : "Which eWallet / Pay Later?"}
           </p>
           <div className="grid grid-cols-2 gap-2 w-full max-w-sm">
-            {paymentMethods.map((pm) => (
+            {filteredPms.map((pm) => (
               <button
                 key={pm.id}
                 className={cn(
@@ -288,13 +331,17 @@ export default function AddInstallmentPage() {
                 )}
                 onClick={() => setPaymentMethodId(paymentMethodId === pm.id ? null : pm.id)}
               >
-                <span className="text-2xl">💳</span>
+                <span className="text-2xl">
+                  {pm.type === "credit_card" ? "💳" : "📱"}
+                </span>
                 <span>{pm.name}</span>
               </button>
             ))}
-            {paymentMethods.length === 0 && (
+            {filteredPms.length === 0 && (
               <p className="text-sm text-muted-foreground col-span-2 text-center">
-                No credit cards. Add one in Settings.
+                {isAuto
+                  ? "No credit cards. Add one in Settings."
+                  : "No eWallets. Add one in Settings."}
               </p>
             )}
           </div>
@@ -355,7 +402,7 @@ export default function AddInstallmentPage() {
               onClick={nextStep}
               disabled={step === "amount" && parseFloat(amountPerMonth) === 0}
             >
-              {step === "payment" && !paymentMethodId ? "Skip" : step === "category" && !categoryId ? "Skip" : "Next"}
+              {canSkip && !paymentMethodId && step === "payment" ? "Skip" : canSkip && !categoryId && step === "category" ? "Skip" : "Next"}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           )}

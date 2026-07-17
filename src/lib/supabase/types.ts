@@ -236,6 +236,7 @@ export interface Database {
           billing_day: number;
           payment_method_id: string | null;
           category_id: string | null;
+          is_auto: boolean;
           is_completed: boolean;
           created_at: string;
         };
@@ -249,6 +250,7 @@ export interface Database {
           billing_day: number;
           payment_method_id?: string | null;
           category_id?: string | null;
+          is_auto?: boolean;
           is_completed?: boolean;
           created_at?: string;
         };
@@ -262,6 +264,7 @@ export interface Database {
           billing_day?: number;
           payment_method_id?: string | null;
           category_id?: string | null;
+          is_auto?: boolean;
           is_completed?: boolean;
           created_at?: string;
         };

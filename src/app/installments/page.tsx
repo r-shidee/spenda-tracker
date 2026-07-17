@@ -55,7 +55,7 @@ export default function InstallmentsPage() {
       const toUpdate: { id: string; months_elapsed: number; is_completed: boolean }[] = [];
 
       for (const inst of instResult.data) {
-        if (inst.is_completed) continue;
+        if (inst.is_completed || !inst.is_auto) continue;
         const billingDay = inst.billing_day;
         const today = now.getDate();
         const currentMonth = now.getMonth();
@@ -173,7 +173,12 @@ export default function InstallmentsPage() {
                       <div className="flex items-center gap-2">
                         <span className="text-lg">{cat?.icon || "🔄"}</span>
                         <div>
-                          <p className="text-sm font-medium">{inst.name}</p>
+                          <p className="text-sm font-medium">
+                            {inst.name}
+                            <span className="ml-1.5 text-[10px] text-muted-foreground">
+                              {inst.is_auto ? "💳 CC" : "📱 PayLater"}
+                            </span>
+                          </p>
                           <p className="text-xs text-muted-foreground">
                             Month {inst.months_elapsed} of {inst.total_months}
                           </p>
@@ -192,7 +197,7 @@ export default function InstallmentsPage() {
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                       <span>Next: {formatDate(nextBilling)}</span>
-                      {pm && <span>💳 {pm.name}</span>}
+                      {pm && <span>{pm.type === "credit_card" ? "💳" : "📱"} {pm.name}</span>}
                       <span>Ends: {formatDate(endDate)}</span>
                     </div>
                   </CardContent>

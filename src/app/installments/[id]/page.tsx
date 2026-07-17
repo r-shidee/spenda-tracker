@@ -140,6 +140,9 @@ export default function InstallmentEditPage({ params }: { params: Promise<{ id: 
     >
     <main className="mx-auto flex min-h-screen w-full max-w-lg flex-col px-4 py-4 pb-24">
       <div className="mb-6 text-center">
+        <p className="text-xs text-muted-foreground mb-1">
+          {installment.is_auto ? "💳 Credit Card" : "📱 Pay Later"}
+        </p>
         <p className="text-4xl font-bold tracking-tight font-mono">
           {formatAmount(remainingTotal)}
         </p>
@@ -147,6 +150,31 @@ export default function InstallmentEditPage({ params }: { params: Promise<{ id: 
           {remaining} months remaining · {formatAmount(parseFloat(editAmount || "0"))}/mo
         </p>
       </div>
+
+      {!installment.is_auto && remaining > 0 && (
+        <Card className="mb-3 border-dashed">
+          <CardContent className="p-4">
+            <Button
+              className="w-full"
+              onClick={async () => {
+                const newElapsed = parseInt(editElapsed) + 1;
+                const completed = newElapsed >= parseInt(editTotalMonths);
+                await supabase
+                  .from("installments")
+                  .update({ months_elapsed: newElapsed, is_completed: completed })
+                  .eq("id", id);
+                setEditElapsed(String(newElapsed));
+                if (completed) {
+                  setInstallment({ ...installment!, months_elapsed: newElapsed, is_completed: true });
+                }
+              }}
+              disabled={parseInt(editElapsed) >= parseInt(editTotalMonths)}
+            >
+              Mark Month {parseInt(editElapsed) + 1} as Paid
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="mb-3">
         <CardContent className="space-y-3 p-4">
