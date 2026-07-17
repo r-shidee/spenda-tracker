@@ -356,6 +356,68 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {installments.filter(i => !i.is_completed).length > 0 && (
+        <>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-base font-semibold">Installments</h2>
+            <Link
+              href="/installments"
+              transitionTypes={["nav-forward"]}
+              className="text-xs font-medium text-muted-foreground hover:text-foreground"
+            >
+              View All
+            </Link>
+          </div>
+          <div className="mb-4 flex flex-col gap-2">
+            {installments.filter(i => !i.is_completed).slice(0, 5).map((inst) => {
+              const cat = categories.find(c => c.id === inst.category_id);
+              const pm = paymentMethods.find(p => p.id === inst.payment_method_id);
+              const remaining = inst.total_months - inst.months_elapsed;
+              const remainingTotal = remaining * Number(inst.amount_per_month);
+              const progress = (inst.months_elapsed / inst.total_months) * 100;
+              const nextBilling = new Date();
+              nextBilling.setDate(inst.billing_day);
+              if (new Date().getDate() >= inst.billing_day) {
+                nextBilling.setMonth(nextBilling.getMonth() + 1);
+              }
+              const nextStr = nextBilling.toLocaleDateString("en-MY", { day: "numeric", month: "short" });
+
+              return (
+                <Link key={inst.id} href={`/installments/${inst.id}`} transitionTypes={["nav-forward"]}>
+                  <Card className="transition-colors hover:bg-muted/50">
+                    <CardContent className="py-2 pl-4 pr-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{cat?.icon || "🔄"}</span>
+                          <div>
+                            <span className="text-sm font-medium">{inst.name}</span>
+                            <span className="text-xs text-muted-foreground ml-1">
+                              Month {inst.months_elapsed}/{inst.total_months}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="font-mono text-sm font-semibold">{formatAmount(remainingTotal)}</span>
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full bg-foreground/80"
+                            style={{ width: `${Math.min(progress, 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                          {nextStr} · {pm?.name || ""}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        </>
+      )}
+
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-base font-semibold">
           Transactions
