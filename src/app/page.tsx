@@ -11,6 +11,7 @@ import type { Database } from "@/lib/supabase/types";
 type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
 type Category = Database["public"]["Tables"]["categories"]["Row"];
 type PaymentMethod = Database["public"]["Tables"]["payment_methods"]["Row"];
+type Installment = Database["public"]["Tables"]["installments"]["Row"];
 
 interface CategoryTotal {
   category_id: string;
@@ -28,6 +29,8 @@ export default function DashboardPage() {
   const [useStatementCycle, setUseStatementCycle] = useState(true);
   const [totalToPay, setTotalToPay] = useState(0);
   const [ewalletSpending, setEwalletSpending] = useState(0);
+  const [installments, setInstallments] = useState<Installment[]>([]);
+  const [installmentRemaining, setInstallmentRemaining] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const supabase = createClient();
@@ -145,6 +148,44 @@ export default function DashboardPage() {
       .from("payment_methods")
       .select("*")
       .eq("space_id", spaceId);
+
+    const { data: insts } = await supabase
+      .from("installments")
+      .select("*")
+      .eq("space_id", spaceId)
+      .eq("is_completed", false);
+
+    if (insts) {
+      const now = new Date();
+      const toUpdate: { id: string; months_elapsed: number; is_completed: boolean }[] = [];
+
+      for (const inst of insts) {
+        const billingDay = inst.billing_day;
+        const billingDateThisMonth = new Date(now.getFullYear(), now.getMonth(), billingDay);
+        if (now > billingDateThisMonth && inst.months_elapsed < inst.total_months) {
+          const newElapsed = inst.months_elapsed + 1;
+          const completed = newElapsed >= inst.total_months;
+          toUpdate.push({ id: inst.id, months_elapsed: newElapsed, is_completed: completed });
+          inst.months_elapsed = newElapsed;
+          inst.is_completed = completed;
+        }
+      }
+
+      if (toUpdate.length > 0) {
+        for (const u of toUpdate) {
+          await supabase
+            .from("installments")
+            .update({ months_elapsed: u.months_elapsed, is_completed: u.is_completed })
+            .eq("id", u.id);
+        }
+      }
+
+      setInstallments(insts);
+      const instTotal = insts
+        .filter(i => !i.is_completed)
+        .reduce((sum, i) => sum + (i.total_months - i.months_elapsed) * Number(i.amount_per_month), 0);
+      setInstallmentRemaining(instTotal);
+    }
 
     if (txns && pms) {
       const pmMap = new Map(pms.map(p => [p.id, p]));
@@ -266,8 +307,17 @@ export default function DashboardPage() {
       <div className="mb-6 text-center">
         <p className="text-sm text-muted-foreground">Total to Pay</p>
         <p className="text-4xl font-bold tracking-tight font-mono">
-          {formatAmount(totalToPay)}
+          {formatAmount(totalToPay + installmentRemaining)}
         </p>
+        {installmentRemaining > 0 && (
+          <Link
+            href="/installments"
+            transitionTypes={["nav-forward"]}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            includes {formatAmount(installmentRemaining)} from {installments.filter(i => !i.is_completed).length} installment{installments.filter(i => !i.is_completed).length !== 1 ? "s" : ""}
+          </Link>
+        )}
       </div>
 
       {ewalletSpending > 0 && (

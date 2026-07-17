@@ -225,6 +225,47 @@ export interface Database {
           updated_at?: string;
         };
       };
+      installments: {
+        Row: {
+          id: string;
+          space_id: string;
+          name: string;
+          total_months: number;
+          months_elapsed: number;
+          amount_per_month: number;
+          billing_day: number;
+          payment_method_id: string | null;
+          category_id: string | null;
+          is_completed: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          space_id: string;
+          name: string;
+          total_months: number;
+          months_elapsed?: number;
+          amount_per_month: number;
+          billing_day: number;
+          payment_method_id?: string | null;
+          category_id?: string | null;
+          is_completed?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          space_id?: string;
+          name?: string;
+          total_months?: number;
+          months_elapsed?: number;
+          amount_per_month?: number;
+          billing_day?: number;
+          payment_method_id?: string | null;
+          category_id?: string | null;
+          is_completed?: boolean;
+          created_at?: string;
+        };
+      };
     };
     Enums: {
       transaction_type: "expense" | "transfer";
